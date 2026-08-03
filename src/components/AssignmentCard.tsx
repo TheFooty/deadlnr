@@ -7,7 +7,7 @@ import {
   getSmartDescFormat,
   getSmartCourseFormat,
 } from '@/lib/smart-format';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Paperclip } from 'lucide-react';
 
 interface AssignmentCardProps {
   assignment: CanvasAssignment;
@@ -102,6 +102,21 @@ export function AssignmentCard({ assignment, isFrontCard = false }: AssignmentCa
 
         {/* Smart Dynamic Description */}
         <div className="my-auto py-2">
+          {/* File Attachments Badge in Description */}
+          {assignment.attachments && assignment.attachments.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-2">
+              <div className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-300">
+                <Paperclip className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+                <span className="truncate">
+                  Files ({assignment.attachments.length}):{' '}
+                  <strong className="text-white font-mono">
+                    {assignment.attachments.map((a) => a.name).join(', ')}
+                  </strong>
+                </span>
+              </div>
+            </div>
+          )}
+
           {isSparseDescription ? (
             <p className="text-sm text-slate-500 italic">
               Limited details in calendar feed — open in Canvas for full instructions.
