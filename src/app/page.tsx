@@ -52,6 +52,7 @@ export default function HomePage() {
       }
 
       let fetchedList: CanvasAssignment[] = feedData.assignments || [];
+      let isMockData = !!feedData.isMock;
 
       // Read custom user assignments from localStorage
       let customList: CanvasAssignment[] = [];
@@ -62,15 +63,21 @@ export default function HomePage() {
         } catch {}
       }
 
-      // Merge custom deadlines & Canvas assignments, then sort by due date
+      // If user has custom assignments, remove mock sample assignments completely!
+      if (customList.length > 0 && isMockData) {
+        fetchedList = [];
+        isMockData = false;
+      }
+
+      // Combine & sort by due date
       const combined = [...customList, ...fetchedList];
       const sorted = combined.sort(
         (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
       );
 
       setAssignments(sorted);
-      setIsMock(!!feedData.isMock);
-      setNoFeedUrl(!!feedData.noFeedUrl);
+      setIsMock(isMockData && customList.length === 0);
+      setNoFeedUrl(!!feedData.noFeedUrl && customList.length === 0);
     } catch (err: any) {
       console.error('Failed to load assignments:', err);
       setError('Unable to reach backend API');
@@ -85,11 +92,15 @@ export default function HomePage() {
 
   const handleCustomAssignmentAdded = (newAssignment: CanvasAssignment) => {
     setAssignments((prev) => {
-      const updated = [newAssignment, ...prev];
+      // Remove any leftover mock sample assignments if present
+      const cleanPrev = isMock ? prev.filter((a) => !a.id.startsWith('mock_')) : prev;
+      const updated = [newAssignment, ...cleanPrev];
       return updated.sort(
         (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
       );
     });
+    setIsMock(false);
+    setNoFeedUrl(false);
   };
 
   const currentAi = AI_PROVIDERS[preferredAi] || AI_PROVIDERS.gemini;
@@ -106,11 +117,11 @@ export default function HomePage() {
 
       <main className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 max-w-4xl mx-auto w-full">
         {/* Banner if Demo Mode / Feed URL missing */}
-        {isMock && !loading && (
-          <div className="mb-4 w-full max-w-md rounded-xl bg-amber-500/10 px-4 py-3 text-xs text-amber-300 flex items-center justify-between gap-3">
+        {isMock && !loading && assignments.length > 0 && (
+          <div className="mb-4 w-full max-w-md rounded-xl bg-amber-500/10 px-4 py-3 text-xs text-amber-300 flex items-center justify-between gap-3 border border-amber-500/20">
             <span>
               {noFeedUrl
-                ? 'Showing sample data — add your Canvas feed in settings to sync.'
+                ? 'Showing sample data — add your Canvas feed in settings or click Add Task above.'
                 : 'Demo mode — showing sample assignments.'}
             </span>
             <Link
@@ -137,7 +148,7 @@ export default function HomePage() {
             onClick={() => setIsAddModalOpen(true)}
             className="inline-flex items-center gap-1.5 rounded-2xl bg-[#FF3B00] hover:bg-[#FF3B00]/90 px-4 py-2.5 text-xs sm:text-sm font-bold text-white shadow-lg shadow-[#FF3B00]/20 active:scale-95 transition-all font-display"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-4 w-4 stroke-[2.5]" />
             <span>Add Task</span>
           </button>
         </div>
