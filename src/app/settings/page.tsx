@@ -4,12 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { PreferredAI, AI_PROVIDERS, ThemeId, APP_THEMES } from '@/lib/types';
 import { useTheme } from '@/components/ThemeProvider';
-import { Lock, Check, HelpCircle, ArrowLeft, Loader2, Palette } from 'lucide-react';
+import { Lock, Check, HelpCircle, ArrowLeft, Loader2, Palette, Sparkles, Layers } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SettingsPage() {
   const [feedUrl, setFeedUrl] = useState('');
   const [preferredAi, setPreferredAi] = useState<PreferredAI>('gemini');
+  const [showDemoData, setShowDemoData] = useState<boolean>(false); // OFF by default
   const [hasFeedUrl, setHasFeedUrl] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -24,6 +25,8 @@ export default function SettingsPage() {
       if (localAi && AI_PROVIDERS[localAi]) {
         setPreferredAi(localAi);
       }
+      const localDemo = localStorage.getItem('deadlnr_show_demo_data') === 'true';
+      setShowDemoData(localDemo);
     }
 
     async function loadSettings() {
@@ -37,6 +40,15 @@ export default function SettingsPage() {
               localStorage.setItem('deadlnr_preferred_ai', data.preferred_ai);
             }
           }
+          if (data.theme) {
+            setTheme(data.theme);
+          }
+          if (typeof data.show_demo_data === 'boolean') {
+            setShowDemoData(data.show_demo_data);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('deadlnr_show_demo_data', String(data.show_demo_data));
+            }
+          }
           if (data.has_feed_url) setHasFeedUrl(data.has_feed_url);
         }
       } catch (err) {
@@ -46,7 +58,7 @@ export default function SettingsPage() {
       }
     }
     loadSettings();
-  }, []);
+  }, [setTheme]);
 
   const handleAiSelect = (ai: PreferredAI) => {
     setPreferredAi(ai);
@@ -56,15 +68,24 @@ export default function SettingsPage() {
     }
   };
 
+  const handleDemoToggle = (enabled: boolean) => {
+    setShowDemoData(enabled);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('deadlnr_show_demo_data', String(enabled));
+      document.cookie = `deadlnr_show_demo_data=${enabled}; path=/; max-age=31536000`;
+    }
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setMessage(null);
 
-    // Always update localStorage & Cookie immediately
     if (typeof window !== 'undefined') {
       localStorage.setItem('deadlnr_preferred_ai', preferredAi);
+      localStorage.setItem('deadlnr_show_demo_data', String(showDemoData));
       document.cookie = `deadlnr_preferred_ai=${preferredAi}; path=/; max-age=31536000`;
+      document.cookie = `deadlnr_show_demo_data=${showDemoData}; path=/; max-age=31536000`;
     }
 
     try {
@@ -74,6 +95,8 @@ export default function SettingsPage() {
         body: JSON.stringify({
           feed_url: feedUrl.trim() || undefined,
           preferred_ai: preferredAi,
+          theme,
+          show_demo_data: showDemoData,
         }),
       });
 
@@ -83,9 +106,8 @@ export default function SettingsPage() {
         throw new Error(data.error || 'Failed to save settings');
       }
 
-      const selectedAiObj = AI_PROVIDERS[preferredAi];
       setMessage({
-        text: `Settings saved! Preferred AI set to ${selectedAiObj.name}.`,
+        text: `Settings saved successfully! Account preferences synced.`,
         type: 'success',
       });
       if (feedUrl.trim()) setHasFeedUrl(true);
@@ -119,8 +141,8 @@ export default function SettingsPage() {
           <div
             className={`mb-6 rounded-xl p-4 text-sm flex items-start gap-2 ${
               message.type === 'success'
-                ? 'bg-[#00E599]/10 text-[#00E599]'
-                : 'bg-[#FF0055]/10 text-[#FF0055]'
+                ? 'bg-[#00E599]/10 text-[#00E599] border border-[#00E599]/20'
+                : 'bg-[#FF0055]/10 text-[#FF0055] border border-[#FF0055]/20'
             }`}
           >
             {message.type === 'success' ? <Check className="h-4 w-4 shrink-0 mt-0.5" /> : <HelpCircle className="h-4 w-4 shrink-0 mt-0.5" />}
@@ -128,7 +150,7 @@ export default function SettingsPage() {
           </div>
         )}
 
-        <form onSubmit={handleSave} className="space-y-8">
+        <form onSubmit={handleSave} className="space-y-6">
           {/* Section 1: Custom Themes Selector */}
           <div className="rounded-2xl border border-slate-800 bg-[#111622] p-6 card-tactile">
             <div className="flex items-center gap-2 mb-1">
@@ -176,11 +198,41 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Section 2: Preferred AI Picker */}
+          {/* Section 2: Sample Demo Data Toggle (OFF by default) */}
           <div className="rounded-2xl border border-slate-800 bg-[#111622] p-6 card-tactile">
-            <h2 className="text-lg font-bold text-white mb-1 font-display">
-              Default AI Assistant
-            </h2>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Layers className="h-5 w-5 text-[#FF3B00]" />
+                  <h2 className="text-lg font-bold text-white font-display">
+                    Sample Demo Assignments
+                  </h2>
+                </div>
+                <p className="text-xs sm:text-sm text-slate-400">
+                  Include sample mock tasks when no real Canvas deadlines exist. <strong className="text-slate-200">(Off by default)</strong>
+                </p>
+              </div>
+
+              <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                <input
+                  type="checkbox"
+                  checked={showDemoData}
+                  onChange={(e) => handleDemoToggle(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-12 h-6 bg-slate-900 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FF3B00] border border-slate-700"></div>
+              </label>
+            </div>
+          </div>
+
+          {/* Section 3: Preferred AI Picker */}
+          <div className="rounded-2xl border border-slate-800 bg-[#111622] p-6 card-tactile">
+            <div className="flex items-center gap-2 mb-1">
+              <Sparkles className="h-5 w-5 text-[#FF3B00]" />
+              <h2 className="text-lg font-bold text-white font-display">
+                Default AI Assistant
+              </h2>
+            </div>
             <p className="text-sm text-slate-400 mb-5">
               Swiping right opens your assignment focus detail view and chosen AI chat.
             </p>
@@ -222,7 +274,7 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Section 3: Canvas iCal Feed URL */}
+          {/* Section 4: Canvas iCal Feed URL */}
           <div className="rounded-2xl border border-slate-800 bg-[#111622] p-6 card-tactile">
             <div className="flex items-center justify-between mb-1">
               <h2 className="text-lg font-bold text-white font-display">
@@ -287,7 +339,7 @@ export default function SettingsPage() {
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#FF3B00] hover:bg-[#FF3B00]/90 px-8 py-3.5 text-sm font-bold text-white active:scale-95 transition-all disabled:opacity-50 font-display"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#FF3B00] hover:bg-[#FF3B00]/90 px-8 py-3.5 text-sm font-bold text-white active:scale-95 transition-all disabled:opacity-50 font-display shadow-lg shadow-[#FF3B00]/20"
             >
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
               <span>Save Settings</span>

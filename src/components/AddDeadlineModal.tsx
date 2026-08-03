@@ -31,13 +31,20 @@ export function AddDeadlineModal({ isOpen, onClose, onAdded }: AddDeadlineModalP
       canvasUrl: url.trim(),
     };
 
-    // Save to localStorage
+    // Save to localStorage & sync across user account
     if (typeof window !== 'undefined') {
       try {
         const stored = localStorage.getItem('deadlnr_custom_assignments');
         const customList: CanvasAssignment[] = stored ? JSON.parse(stored) : [];
         customList.unshift(newAssignment);
         localStorage.setItem('deadlnr_custom_assignments', JSON.stringify(customList));
+
+        // Sync custom assignments list to server user_settings / cookies
+        fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ custom_assignments: customList }),
+        }).catch(() => {});
       } catch {}
     }
 

@@ -66,6 +66,7 @@ export const APP_THEMES: Record<ThemeId, ThemeOption> = {
 export interface UserSettings {
   preferred_ai: PreferredAI;
   theme?: ThemeId;
+  show_demo_data?: boolean;
   has_feed_url: boolean;
 }
 
