@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { SwipeEvent } from '@/lib/types';
-import { History, ArrowRight, X, ArrowLeft, RefreshCw } from 'lucide-react';
+import { History, Sparkles, X, ArrowLeft, RefreshCw, BookOpen, Clock } from 'lucide-react';
 import Link from 'next/link';
 
 export default function HistoryPage() {
@@ -30,7 +30,7 @@ export default function HistoryPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#080A0F] text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
       <Navbar />
 
       <main className="flex-1 max-w-3xl mx-auto w-full p-4 sm:p-6 md:p-8">
@@ -44,7 +44,7 @@ export default function HistoryPage() {
             </Link>
             <div>
               <h1 className="text-2xl font-black text-white">Swipe History</h1>
-              <p className="text-xs text-slate-400">Review your past skipped and started assignments</p>
+              <p className="text-xs text-slate-400">Review your past skipped and AI-started assignments</p>
             </div>
           </div>
 
@@ -57,67 +57,70 @@ export default function HistoryPage() {
         </div>
 
         {loading ? (
-          <div className="flex h-64 flex-col items-center justify-center rounded-2xl border border-slate-800 bg-[#111622]/60">
-            <RefreshCw className="h-6 w-6 text-slate-500 animate-spin mb-2" />
-            <p className="text-xs text-slate-500">Loading swipe log...</p>
+          <div className="flex h-64 flex-col items-center justify-center rounded-3xl border border-slate-800 bg-slate-900/40">
+            <RefreshCw className="h-8 w-8 text-orange-400 animate-spin mb-2" />
+            <p className="text-xs text-slate-400">Loading swipe log...</p>
           </div>
         ) : history.length === 0 ? (
-          <div className="flex h-64 flex-col items-center justify-center rounded-2xl border border-slate-800 bg-[#111622]/60 p-6 text-center">
-            <History className="h-8 w-8 text-slate-600 mb-3" />
+          <div className="flex h-64 flex-col items-center justify-center rounded-3xl border border-slate-800 bg-slate-900/40 p-6 text-center">
+            <History className="h-10 w-10 text-slate-600 mb-3" />
             <h3 className="text-base font-bold text-white mb-1">No Swipes Recorded Yet</h3>
-            <p className="text-sm text-slate-400 max-w-xs mb-4">
+            <p className="text-xs text-slate-400 max-w-xs mb-4">
               Start swiping on assignments on the main deck to build your activity history.
             </p>
             <Link
               href="/"
-              className="rounded-xl bg-[#FF3B00] hover:bg-[#FF3B00]/90 px-4 py-2 text-xs font-bold text-white transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 px-4 py-2 text-xs font-bold text-white shadow-lg"
             >
-              Go to Swipe Deck
+              <span>Go to Swipe Deck</span>
             </Link>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {history.map((item, idx) => {
               const isRight = item.direction === 'right';
 
               return (
                 <div
                   key={idx}
-                  className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 bg-[#111622]/60 p-4"
+                  className="flex items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 backdrop-blur-md"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-3">
                     <div
-                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${
                         isRight
-                          ? 'bg-[#00E599]/10 text-[#00E599]'
-                          : 'bg-[#FF0055]/10 text-[#FF0055]'
+                          ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                          : 'border-rose-500/30 bg-rose-500/10 text-rose-400'
                       }`}
                     >
-                      {isRight ? <ArrowRight className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                      {isRight ? <Sparkles className="h-5 w-5" /> : <X className="h-5 w-5" />}
                     </div>
 
-                    <div className="min-w-0">
+                    <div>
                       <h4 className="text-sm font-bold text-white line-clamp-1">{item.assignment_title}</h4>
-                      <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
-                        <span>{item.course}</span>
+                      <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400">
+                        <span className="flex items-center gap-1 text-slate-300">
+                          <BookOpen className="h-3 w-3 text-orange-400" />
+                          {item.course}
+                        </span>
                         {item.swiped_at && (
-                          <>
-                            <span className="text-slate-700">·</span>
-                            <span>
-                              {new Date(item.swiped_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </>
+                          <span className="flex items-center gap-1 text-slate-400">
+                            <Clock className="h-3 w-3" />
+                            {new Date(item.swiped_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
                         )}
                       </div>
                     </div>
                   </div>
 
                   <span
-                    className={`shrink-0 text-xs font-semibold ${
-                      isRight ? 'text-[#00E599]' : 'text-[#FF0055]'
+                    className={`shrink-0 text-xs font-extrabold uppercase tracking-wider px-3 py-1 rounded-full border ${
+                      isRight
+                        ? 'border-emerald-500/40 bg-emerald-500/20 text-emerald-300'
+                        : 'border-rose-500/40 bg-rose-500/20 text-rose-300'
                     }`}
                   >
-                    {isRight ? 'Started' : 'Skipped'}
+                    {isRight ? 'Started in AI' : 'Skipped'}
                   </span>
                 </div>
               );

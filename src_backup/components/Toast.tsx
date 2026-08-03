@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, X } from 'lucide-react';
+import { CheckCircle2, Copy, Sparkles, ExternalLink, X } from 'lucide-react';
 
 interface ToastProps {
   message: string | null;
@@ -27,7 +27,10 @@ export function Toast({ message, subtext, onClose }: ToastProps) {
             </div>
 
             <div className="flex-1 text-sm">
-              <p className="font-extrabold text-white">{message}</p>
+              <div className="flex items-center gap-1.5 font-extrabold text-white">
+                <Copy className="h-4 w-4 text-emerald-400" />
+                <span>{message}</span>
+              </div>
               {subtext && <p className="mt-0.5 text-xs text-slate-300 font-medium">{subtext}</p>}
             </div>
 

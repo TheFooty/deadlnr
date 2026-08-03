@@ -7,32 +7,32 @@ import {
   getSmartDescFormat,
   getSmartCourseFormat,
 } from '@/lib/smart-format';
-import { ExternalLink } from 'lucide-react';
+import { Clock, ExternalLink, BookOpen, AlertTriangle } from 'lucide-react';
 
 interface AssignmentCardProps {
   assignment: CanvasAssignment;
   isFrontCard?: boolean;
 }
 
-// Course color dot based on course code
+// Course pill styling based on course code
 function getCourseTheme(courseName: string) {
   const name = courseName.toUpperCase();
   if (name.includes('CS') || name.includes('COMP') || name.includes('CODE')) {
-    return { dot: 'bg-[#00E599]', text: 'text-[#00E599]' };
+    return 'bg-[#00E599]/10 border-[#00E599]/30 text-[#00E599]';
   }
   if (name.includes('MATH') || name.includes('STAT') || name.includes('CALC')) {
-    return { dot: 'bg-indigo-400', text: 'text-indigo-400' };
+    return 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400';
   }
   if (name.includes('PHYS') || name.includes('CHEM') || name.includes('BIO')) {
-    return { dot: 'bg-cyan-400', text: 'text-cyan-400' };
+    return 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400';
   }
   if (name.includes('ENGL') || name.includes('RHET') || name.includes('LIT')) {
-    return { dot: 'bg-purple-400', text: 'text-purple-400' };
+    return 'bg-purple-500/10 border-purple-500/30 text-purple-400';
   }
   if (name.includes('HIST') || name.includes('GOV') || name.includes('POLI')) {
-    return { dot: 'bg-amber-400', text: 'text-amber-400' };
+    return 'bg-amber-500/10 border-amber-500/30 text-amber-400';
   }
-  return { dot: 'bg-[#FF3B00]', text: 'text-[#FF3B00]' };
+  return 'bg-[#FF3B00]/10 border-[#FF3B00]/30 text-[#FF3B00]';
 }
 
 export function AssignmentCard({ assignment, isFrontCard = false }: AssignmentCardProps) {
@@ -40,7 +40,7 @@ export function AssignmentCard({ assignment, isFrontCard = false }: AssignmentCa
   const { codeTag, fullName } = getSmartCourseFormat(assignment.course);
   const smartTitle = getSmartTitleFormat(assignment.title);
   const smartDesc = getSmartDescFormat(assignment.description);
-  const theme = getCourseTheme(assignment.course);
+  const themeClass = getCourseTheme(assignment.course);
 
   // Format due date into clean status text
   const formatDueDate = (dateStr: string) => {
@@ -64,32 +64,37 @@ export function AssignmentCard({ assignment, isFrontCard = false }: AssignmentCa
 
   return (
     <div
-      className={`relative flex h-full w-full flex-col justify-between overflow-hidden rounded-[2.25rem] border border-slate-800 bg-[#111622] p-6 sm:p-8 lg:p-9 select-none card-tactile ${
+      className={`relative flex h-full w-full flex-col justify-between overflow-hidden rounded-[2.25rem] border border-slate-800 bg-[#111622] p-6 sm:p-8 lg:p-9 shadow-2xl select-none card-tactile ${
         isFrontCard ? 'card-tactile-active border-slate-700/80' : ''
       }`}
     >
       {/* Top Section */}
       <div className="flex-1 flex flex-col justify-between">
-        {/* Header: Course tag + due status */}
+        {/* Header: Clean Course Code Tag + Due Status Badge */}
         <div>
           <div className="flex items-center justify-between gap-2 mb-3">
-            <span className={`inline-flex items-center gap-2 text-xs sm:text-sm font-semibold ${theme.text}`}>
-              <span className={`h-2 w-2 rounded-full ${theme.dot}`} />
-              {codeTag}
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1 text-xs sm:text-sm font-mono font-bold uppercase tracking-wider ${themeClass}`}
+            >
+              <BookOpen className="h-4 w-4" />
+              <span>{codeTag}</span>
             </span>
 
             <span
-              className={`text-xs sm:text-sm font-semibold ${
-                isUrgent ? 'text-[#FF0055]' : 'text-slate-400'
+              className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs sm:text-sm font-mono font-bold ${
+                isUrgent
+                  ? 'bg-[#FF0055]/15 text-[#FF0055] border border-[#FF0055]/30 animate-pulse'
+                  : 'bg-slate-900 text-slate-300 border border-slate-800'
               }`}
             >
+              <Clock className="h-4 w-4" />
               {statusText}
             </span>
           </div>
 
           {/* Optional Full Course Name Eyebrow */}
           {fullName && (
-            <p className="text-[11px] sm:text-xs text-slate-500 mb-2 line-clamp-1">
+            <p className="text-[11px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2 line-clamp-1">
               {fullName}
             </p>
           )}
@@ -103,11 +108,14 @@ export function AssignmentCard({ assignment, isFrontCard = false }: AssignmentCa
         {/* Smart Dynamic Description */}
         <div className="my-auto py-2">
           {isSparseDescription ? (
-            <p className="text-sm text-slate-500 italic">
-              Limited details in calendar feed — open in Canvas for full instructions.
-            </p>
+            <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-5 text-center">
+              <AlertTriangle className="mx-auto h-6 w-6 text-amber-400 mb-2 opacity-90" />
+              <p className="text-xs sm:text-sm text-slate-400">
+                Sparse details in calendar feed. Click below to view full instructions on Canvas LMS.
+              </p>
+            </div>
           ) : (
-            <div className={`space-y-3 text-slate-300 ${smartDesc.fontSizeClass} ${smartDesc.lineHeightClass}`}>
+            <div className={`space-y-3 ${smartDesc.fontSizeClass} ${smartDesc.lineHeightClass}`}>
               {smartDesc.paragraphs.slice(0, 3).map((para, idx) => (
                 <p key={idx} className="line-clamp-4">
                   {para}
@@ -119,20 +127,20 @@ export function AssignmentCard({ assignment, isFrontCard = false }: AssignmentCa
       </div>
 
       {/* Footer: Action Link */}
-      <div className="pt-4 border-t border-slate-800/80 flex items-center text-xs sm:text-sm mt-4">
+      <div className="pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs sm:text-sm mt-4">
         {assignment.canvasUrl ? (
           <a
             href={assignment.canvasUrl}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="inline-flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors"
+            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 px-4 py-2 font-bold text-slate-200 border border-slate-800 transition-colors shadow-sm"
           >
             <span>Open in Canvas</span>
-            <ExternalLink className="h-3.5 w-3.5" />
+            <ExternalLink className="h-4 w-4 text-slate-400" />
           </a>
         ) : (
-          <span className="text-slate-600 text-xs">No link available</span>
+          <span className="text-slate-500 italic text-xs">No link</span>
         )}
       </div>
     </div>

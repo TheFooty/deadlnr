@@ -6,69 +6,52 @@ import { usePathname } from 'next/navigation';
 import { DeadlnrLogo } from './Logo';
 import { Settings, History, Layers, User } from 'lucide-react';
 
+const navLinks = [
+  { href: '/', label: 'Deck', Icon: Layers },
+  { href: '/history', label: 'History', Icon: History },
+  { href: '/settings', label: 'Settings', Icon: Settings },
+];
+
 export function Navbar() {
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-slate-800/80 bg-[#080A0F]/85 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4 sm:px-6">
-        {/* Brand Identity with Custom Logo */}
-        <Link href="/" className="group flex items-center gap-3 transition-transform active:scale-95">
-          <DeadlnrLogo size={40} />
-
-          <div className="flex flex-col">
-            <span className="text-xl font-extrabold tracking-tight text-white font-display leading-none">
-              Dead<span className="text-[#FF3B00]">lnr</span>
-            </span>
-            <span className="text-[10px] font-mono font-bold tracking-widest text-[#94A3B8] uppercase mt-0.5">
-              Canvas Triage
-            </span>
-          </div>
+    <header className="sticky top-0 z-50 w-full border-b border-white/[0.06] bg-[#080A0F]/90 backdrop-blur-lg">
+      <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4 sm:px-6">
+        <Link href="/" className="flex items-center gap-2.5">
+          <DeadlnrLogo size={28} />
+          <span className="text-lg font-bold tracking-tight text-white">
+            Dead<span className="text-[#FF3B00]">lnr</span>
+          </span>
         </Link>
 
-        {/* Navigation Tabs */}
-        <nav className="flex items-center gap-1 sm:gap-2">
-          <Link
-            href="/"
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-              pathname === '/'
-                ? 'bg-[#FF3B00]/15 text-[#FF3B00] border border-[#FF3B00]/30 shadow-sm'
-                : 'text-slate-400 hover:text-white hover:bg-slate-900/80'
-            }`}
-          >
-            <Layers className="h-4 w-4" />
-            <span>Deck</span>
-          </Link>
-
-          <Link
-            href="/history"
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-              pathname === '/history'
-                ? 'bg-[#FF3B00]/15 text-[#FF3B00] border border-[#FF3B00]/30 shadow-sm'
-                : 'text-slate-400 hover:text-white hover:bg-slate-900/80'
-            }`}
-          >
-            <History className="h-4 w-4" />
-            <span className="hidden xs:inline">History</span>
-          </Link>
-
-          <Link
-            href="/settings"
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-              pathname === '/settings'
-                ? 'bg-[#FF3B00]/15 text-[#FF3B00] border border-[#FF3B00]/30 shadow-sm'
-                : 'text-slate-400 hover:text-white hover:bg-slate-900/80'
-            }`}
-          >
-            <Settings className="h-4 w-4" />
-            <span className="hidden xs:inline">Settings</span>
-          </Link>
+        <nav className="flex items-center gap-1">
+          {navLinks.map(({ href, label, Icon }) => {
+            const active = pathname === href;
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={`relative px-3 py-1.5 text-sm transition-colors ${
+                  active
+                    ? 'text-white'
+                    : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                <Icon className="h-4 w-4 sm:hidden" />
+                <span className="hidden sm:inline">{label}</span>
+                {active && (
+                  <span className="absolute inset-x-1 -bottom-[calc(0.5rem+1px)] h-px bg-[#FF3B00]" />
+                )}
+              </Link>
+            );
+          })}
 
           <Link
             href="/login"
-            className="ml-1 sm:ml-2 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-200 bg-slate-900 hover:bg-slate-800 border border-slate-800 transition-all hover:border-slate-700 active:scale-95"
+            className="ml-3 text-sm text-slate-500 hover:text-white transition-colors"
           >
-            <User className="h-3.5 w-3.5 text-[#FF3B00]" />
+            <User className="h-4 w-4 sm:hidden" />
             <span className="hidden sm:inline">Account</span>
           </Link>
         </nav>

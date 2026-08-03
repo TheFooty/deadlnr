@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { DeadlnrLogo } from '@/components/Logo';
-import { ArrowLeft, Mail, KeyRound, Check, Loader2, RefreshCw, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Mail, KeyRound, Check, ShieldCheck, Sparkles, Loader2, RefreshCw, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
 export default function LoginPage() {
@@ -39,7 +39,7 @@ export default function LoginPage() {
 
       setStep('otp');
       setMessage({
-        text: `Code sent to ${email} — check your inbox.`,
+        text: `Verification code sent via Resend to ${email}! Check your inbox.`,
         type: 'success',
       });
     } catch (err: any) {
@@ -97,7 +97,7 @@ export default function LoginPage() {
       <Navbar />
 
       <main className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6">
-        <div className="w-full max-w-md rounded-3xl border border-slate-800 bg-[#111622] p-8 backdrop-blur-xl card-tactile">
+        <div className="w-full max-w-md rounded-3xl border border-slate-800 bg-[#111622] p-8 shadow-2xl backdrop-blur-xl card-tactile">
           <div className="flex justify-between items-center mb-6">
             <Link
               href="/"
@@ -108,29 +108,29 @@ export default function LoginPage() {
             <DeadlnrLogo size={36} />
           </div>
 
-          <div className="mb-6">
+          <div className="text-center mb-6">
             <h1 className="text-2xl font-black text-white font-display mb-1">
               {step === 'email' ? 'Sign In / Register' : 'Verify Email Code'}
             </h1>
-            <p className="text-sm text-slate-400">
+            <p className="text-xs text-slate-400">
               {step === 'email'
-                ? "We'll send you a code"
-                : `Enter the code sent to ${email}`}
+                ? 'Enter your email to receive a Resend security code'
+                : `Enter the verification code sent to ${email}`}
             </p>
           </div>
 
           {message && (
             <div
-              className={`mb-6 rounded-xl p-3 text-sm flex items-start gap-2 ${
+              className={`mb-6 rounded-2xl border p-3.5 text-xs font-semibold flex items-center gap-2 ${
                 message.type === 'success'
-                  ? 'bg-[#00E599]/10 text-[#00E599]'
-                  : 'bg-[#FF0055]/10 text-[#FF0055]'
+                  ? 'border-[#00E599]/40 bg-[#00E599]/10 text-[#00E599]'
+                  : 'border-[#FF0055]/40 bg-[#FF0055]/10 text-[#FF0055]'
               }`}
             >
               {message.type === 'success' ? (
-                <Check className="h-4 w-4 shrink-0 mt-0.5" />
+                <Check className="h-4 w-4 shrink-0 text-[#00E599]" />
               ) : (
-                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                <AlertCircle className="h-4 w-4 shrink-0 text-[#FF0055]" />
               )}
               <span>{message.text}</span>
             </div>
@@ -140,7 +140,7 @@ export default function LoginPage() {
             /* Step 1 Form: Email Input */
             <form onSubmit={handleSendCode} className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-slate-300 mb-1.5">
+                <label className="block text-xs font-mono font-bold uppercase tracking-wider text-slate-300 mb-1.5">
                   Email Address
                 </label>
                 <div className="relative">
@@ -159,9 +159,9 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-[#FF3B00] hover:bg-[#FF3B00]/90 py-3.5 font-bold text-white active:scale-95 transition-all text-sm font-display disabled:opacity-50"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-[#FF3B00] hover:bg-[#FF3B00]/90 py-3.5 font-bold text-white shadow-xl shadow-[#FF3B00]/20 active:scale-95 transition-all text-sm font-display disabled:opacity-50"
               >
-                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                 <span>Send Verification Code</span>
               </button>
             </form>
@@ -169,7 +169,7 @@ export default function LoginPage() {
             /* Step 2 Form: Verification Code Input (Supports up to 8 digits) */
             <form onSubmit={handleVerifyCode} className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-slate-300 mb-1.5">
+                <label className="block text-xs font-mono font-bold uppercase tracking-wider text-slate-300 mb-1.5">
                   Verification Code
                 </label>
                 <div className="relative">
@@ -189,7 +189,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-[#00E599] hover:bg-[#00E599]/90 py-3.5 font-bold text-slate-950 active:scale-95 transition-all text-sm font-display disabled:opacity-50"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-[#00E599] hover:bg-[#00E599]/90 py-3.5 font-bold text-slate-950 shadow-xl shadow-[#00E599]/20 active:scale-95 transition-all text-sm font-display disabled:opacity-50"
               >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4 stroke-[3]" />}
                 <span>Verify Code & Sign In</span>
@@ -202,7 +202,7 @@ export default function LoginPage() {
                   setOtpCode('');
                   setMessage(null);
                 }}
-                className="w-full text-center text-xs text-slate-400 hover:text-white pt-2 flex items-center justify-center gap-1"
+                className="w-full text-center text-xs font-mono text-slate-400 hover:text-white pt-2 flex items-center justify-center gap-1"
               >
                 <RefreshCw className="h-3 w-3" />
                 <span>Use a different email address</span>
@@ -210,9 +210,10 @@ export default function LoginPage() {
             </form>
           )}
 
-          <p className="mt-6 pt-6 border-t border-slate-800 text-center text-[11px] text-slate-500">
-            Secure passwordless login
-          </p>
+          <div className="mt-6 pt-6 border-t border-slate-800 text-center text-[11px] text-slate-400 flex items-center justify-center gap-1.5">
+            <ShieldCheck className="h-4 w-4 text-[#00E599]" />
+            <span>Passwordless OTP protection powered by Resend & Supabase</span>
+          </div>
         </div>
       </main>
     </div>
