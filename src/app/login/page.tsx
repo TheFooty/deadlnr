@@ -2,9 +2,8 @@
 
 import React, { useState } from 'react';
 import { Navbar } from '@/components/Navbar';
-import { createClient } from '@/lib/supabase/client';
 import { DeadlnrLogo } from '@/components/Logo';
-import { ArrowLeft, Mail, KeyRound, Check, ShieldCheck, Sparkles, Loader2, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Mail, KeyRound, Check, ShieldCheck, Sparkles, Loader2, RefreshCw, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
 export default function LoginPage() {
@@ -14,9 +13,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
-  const supabase = createClient();
-
-  // Step 1: Request 6-Digit Email OTP Code
+  // Step 1: Request 6-Digit Email OTP Code via Server API
   const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !email.includes('@')) {
@@ -28,15 +25,16 @@ export default function LoginPage() {
     setMessage(null);
 
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
-        options: {
-          shouldCreateUser: true,
-        },
+      const res = await fetch('/api/auth/otp/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
       });
 
-      if (error) {
-        throw error;
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to send verification code.');
       }
 
       setStep('otp');
@@ -45,13 +43,16 @@ export default function LoginPage() {
         type: 'success',
       });
     } catch (err: any) {
-      setMessage({ text: err.message || 'Failed to send verification code.', type: 'error' });
+      setMessage({
+        text: err.message || 'Failed to send verification code. Check Supabase credentials in Settings.',
+        type: 'error',
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  // Step 2: Verify 6-Digit OTP Code
+  // Step 2: Verify 6-Digit OTP Code via Server API
   const handleVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!otpCode || otpCode.trim().length < 6) {
@@ -63,14 +64,16 @@ export default function LoginPage() {
     setMessage(null);
 
     try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        email: email.trim(),
-        token: otpCode.trim(),
-        type: 'email',
+      const res = await fetch('/api/auth/otp/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), token: otpCode.trim() }),
       });
 
-      if (error) {
-        throw error;
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Invalid or expired verification code.');
       }
 
       setMessage({
@@ -123,7 +126,11 @@ export default function LoginPage() {
                   : 'border-[#FF0055]/40 bg-[#FF0055]/10 text-[#FF0055]'
               }`}
             >
-              {message.type === 'success' ? <Check className="h-4 w-4 shrink-0 text-[#00E599]" /> : <ShieldCheck className="h-4 w-4 shrink-0 text-[#FF0055]" />}
+              {message.type === 'success' ? (
+                <Check className="h-4 w-4 shrink-0 text-[#00E599]" />
+              ) : (
+                <AlertCircle className="h-4 w-4 shrink-0 text-[#FF0055]" />
+              )}
               <span>{message.text}</span>
             </div>
           )}
