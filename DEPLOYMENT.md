@@ -20,7 +20,7 @@ Follow this step-by-step guide to configure Supabase (for permanent cross-device
 
 ## 🔑 Step 2: Configure Environment Variables
 
-Create a file named `.env.local` in the root folder of this project with the following contents:
+Open [.env.local](file:///c:/Users/vmydu/Downloads/Deadlnr/.env.local) and save your Supabase keys:
 
 ```ini
 # Supabase Configuration
@@ -33,16 +33,13 @@ ENCRYPTION_KEY=deadlnr-secret-encryption-key-32b!
 
 ---
 
-## 🚀 Step 3: Push Code to GitHub
+## 🚀 Step 3: Push Code to GitHub (`TheFooty/deadlnr`)
 
-Open your terminal in the `Deadlnr` project directory and run:
+Your GitHub remote repository is configured at `https://github.com/TheFooty/deadlnr.git`.
+
+Run this command in your terminal to push your commits:
 
 ```bash
-git init
-git add .
-git commit -m "Deadlnr initial release"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/deadlnr.git
 git push -u origin main
 ```
 
@@ -50,9 +47,9 @@ git push -u origin main
 
 ## 🌐 Step 4: Host Live on Vercel (2 Minutes)
 
-1. Go to [vercel.com](https://vercel.com) and sign in (or create a free account).
+1. Go to [vercel.com](https://vercel.com) and sign in.
 2. Click **"Add New..." → "Project"**.
-3. Import your **`deadlnr`** GitHub repository.
+3. Select your **`TheFooty/deadlnr`** GitHub repository.
 4. Expand the **Environment Variables** section and add the 3 variables from your `.env.local` file:
    - `NEXT_PUBLIC_SUPABASE_URL` = `https://your-project.supabase.co`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = `your-supabase-anon-key`
