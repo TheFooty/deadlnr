@@ -59,12 +59,12 @@ export default function HistoryPage() {
     fetchHistory();
   }, []);
 
-  // Restore Task back to Deck
+  // Restore Task back to Deck (resets 24h attachment purge timer and brings back task to deck)
   const handleRestoreTask = async (assignmentId: string, assignmentTitle: string) => {
     // 1. Update UI state
     setHistory((prev) => prev.filter((item) => item.assignment_id !== assignmentId));
 
-    // 2. Remove from localStorage swipe history & sessionStorage swiped set
+    // 2. Remove from persistent swipe records so it reappears on refresh
     if (typeof window !== 'undefined') {
       try {
         const storedHistory = localStorage.getItem('deadlnr_swipe_history');
@@ -72,6 +72,13 @@ export default function HistoryPage() {
           const list: SwipeEvent[] = JSON.parse(storedHistory);
           const filtered = list.filter((item) => item.assignment_id !== assignmentId);
           localStorage.setItem('deadlnr_swipe_history', JSON.stringify(filtered));
+        }
+
+        const storedSwiped = localStorage.getItem('deadlnr_swiped_ids_persistent');
+        if (storedSwiped) {
+          const swipedArr: string[] = JSON.parse(storedSwiped);
+          const filteredArr = swipedArr.filter((id) => id !== assignmentId);
+          localStorage.setItem('deadlnr_swiped_ids_persistent', JSON.stringify(filteredArr));
         }
 
         const swipedRaw = sessionStorage.getItem('deadlnr_swiped_ids');
@@ -83,7 +90,7 @@ export default function HistoryPage() {
       } catch {}
     }
 
-    // 3. Call DELETE API route
+    // 3. Call DELETE API route to clear server/cookie history
     try {
       await fetch(`/api/swipe?assignment_id=${encodeURIComponent(assignmentId)}`, {
         method: 'DELETE',
@@ -93,7 +100,7 @@ export default function HistoryPage() {
     }
 
     setToastMessage(`Restored "${assignmentTitle}"!`);
-    setToastSubtext('This assignment is back on your active swipe deck.');
+    setToastSubtext('This assignment is back on your deck with full attachments.');
 
     setTimeout(() => {
       setToastMessage(null);

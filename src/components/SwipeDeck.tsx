@@ -42,17 +42,27 @@ export function SwipeDeck({
 
   const { isPhone, isTablet, isDesktop } = useDevice();
 
-  // Load deck & filter out swiped IDs so they don't reappear on page navigation
+  // Load deck & filter out swiped IDs (persisted across refreshes)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
-        const swipedRaw = sessionStorage.getItem('deadlnr_swiped_ids');
-        if (swipedRaw) {
-          const swipedSet = new Set(JSON.parse(swipedRaw));
-          const unswiped = initialAssignments.filter((a) => !swipedSet.has(a.id));
-          setDeck(unswiped);
-          return;
+        const storedSwiped = localStorage.getItem('deadlnr_swiped_ids_persistent');
+        const swipedArr: string[] = storedSwiped ? JSON.parse(storedSwiped) : [];
+
+        const storedHistory = localStorage.getItem('deadlnr_swipe_history');
+        if (storedHistory) {
+          const historyList: any[] = JSON.parse(storedHistory);
+          historyList.forEach((h: any) => {
+            if (h.assignment_id && !swipedArr.includes(h.assignment_id)) {
+              swipedArr.push(h.assignment_id);
+            }
+          });
         }
+
+        const swipedSet = new Set(swipedArr);
+        const unswiped = initialAssignments.filter((a) => !swipedSet.has(a.id));
+        setDeck(unswiped);
+        return;
       } catch {}
     }
     setDeck(initialAssignments);
@@ -85,23 +95,24 @@ export function SwipeDeck({
     }
   };
 
-  // Helper to record swiped assignment ID in sessionStorage
-  const markSwipedInSession = (assignmentId: string) => {
+  // Helper to record swiped assignment ID in persistent storage
+  const markSwipedPersistent = (assignmentId: string) => {
     if (typeof window !== 'undefined') {
       try {
-        const swipedRaw = sessionStorage.getItem('deadlnr_swiped_ids');
-        const swipedArr: string[] = swipedRaw ? JSON.parse(swipedRaw) : [];
+        const stored = localStorage.getItem('deadlnr_swiped_ids_persistent');
+        const swipedArr: string[] = stored ? JSON.parse(stored) : [];
         if (!swipedArr.includes(assignmentId)) {
           swipedArr.push(assignmentId);
-          sessionStorage.setItem('deadlnr_swiped_ids', JSON.stringify(swipedArr));
+          localStorage.setItem('deadlnr_swiped_ids_persistent', JSON.stringify(swipedArr));
         }
+        sessionStorage.setItem('deadlnr_swiped_ids', JSON.stringify(swipedArr));
       } catch {}
     }
   };
 
   // Deduplicated Log swipe to server & localStorage
   const logSwipe = async (assignment: CanvasAssignment, direction: 'left' | 'right') => {
-    markSwipedInSession(assignment.id);
+    markSwipedPersistent(assignment.id);
     setHasSwipedAny(true);
 
     const newEvent = {
