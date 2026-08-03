@@ -28,6 +28,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    // 1. Apply local storage immediately for fast render
     if (typeof window !== 'undefined') {
       const savedTheme = localStorage.getItem('deadlnr_theme') as ThemeId;
       if (savedTheme && APP_THEMES[savedTheme]) {
@@ -37,6 +38,25 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         applyTheme('default');
       }
     }
+
+    // 2. Fetch server theme from Supabase account settings for cross-device sync
+    async function syncServerTheme() {
+      try {
+        const res = await fetch('/api/settings');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.theme && APP_THEMES[data.theme as ThemeId]) {
+            const serverTheme = data.theme as ThemeId;
+            setThemeState(serverTheme);
+            applyTheme(serverTheme);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('deadlnr_theme', serverTheme);
+            }
+          }
+        }
+      } catch (err) {}
+    }
+    syncServerTheme();
   }, []);
 
   const setTheme = (newTheme: ThemeId) => {

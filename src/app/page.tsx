@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { SwipeDeck } from '@/components/SwipeDeck';
 import { AddDeadlineModal } from '@/components/AddDeadlineModal';
+import { useTheme } from '@/components/ThemeProvider';
 import { CanvasAssignment, PreferredAI, ThemeId, AI_PROVIDERS } from '@/lib/types';
 import { useDevice } from '@/lib/use-device';
 import { RefreshCw, Plus } from 'lucide-react';
@@ -18,19 +19,13 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
+  const { setTheme } = useTheme();
   const { deviceType } = useDevice();
 
   const fetchData = async () => {
     setLoading(true);
     setError(null);
     try {
-      if (typeof window !== 'undefined') {
-        const localAi = localStorage.getItem('deadlnr_preferred_ai') as PreferredAI;
-        if (localAi && AI_PROVIDERS[localAi]) {
-          setPreferredAi(localAi);
-        }
-      }
-
       let serverCustomList: CanvasAssignment[] = [];
 
       // Fetch user account settings across devices from Supabase
@@ -42,6 +37,9 @@ export default function HomePage() {
           if (typeof window !== 'undefined') {
             localStorage.setItem('deadlnr_preferred_ai', settingsData.preferred_ai);
           }
+        }
+        if (settingsData.theme) {
+          setTheme(settingsData.theme);
         }
         if (Array.isArray(settingsData.custom_assignments)) {
           serverCustomList = settingsData.custom_assignments;
@@ -68,9 +66,9 @@ export default function HomePage() {
         } catch {}
       }
 
-      // Merge server & local custom assignments (deduplicated by ID)
+      // Merge local & server custom assignments (Server data from Supabase overwrites local data so edits & attachments sync!)
       const mergedMap = new Map<string, CanvasAssignment>();
-      [...serverCustomList, ...localCustomList].forEach((item) => mergedMap.set(item.id, item));
+      [...localCustomList, ...serverCustomList].forEach((item) => mergedMap.set(item.id, item));
       let customList = Array.from(mergedMap.values());
 
       // Save synced custom assignments list back to localStorage
