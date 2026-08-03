@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
             <h2 style="color: #ffffff; font-size: 24px; font-weight: 800; margin: 0 0 8px 0; font-family: sans-serif;">Deadlnr</h2>
             <p style="color: #94a3b8; font-size: 14px; margin: 0 0 24px 0;">Your 6-digit verification code is:</p>
             <div style="background-color: #111622; border: 1px solid #00e599; border-radius: 16px; padding: 24px; margin-bottom: 24px;">
-              <span style="font-family: monospace; font-size: 36px; font-weight: 800; color: #00e599; letter-spacing: 8px;">${code.split('').join(' ')}</span>
+              <span style="font-family: monospace; font-size: 36px; font-weight: 800; color: #00e599; letter-spacing: 2px;">${code}</span>
             </div>
             <p style="color: #64748b; font-size: 12px; margin: 0;">Enter this code in Deadlnr to sign in. Code expires in 10 minutes.</p>
           </div>

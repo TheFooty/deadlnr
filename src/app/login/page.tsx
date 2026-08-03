@@ -52,12 +52,12 @@ export default function LoginPage() {
     }
   };
 
-  // Step 2: Verify OTP Code (Supports 6 to 8 digit codes)
+  // Step 2: Verify 6-digit OTP Code
   const handleVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanToken = otpCode.trim();
     if (!cleanToken || cleanToken.length < 6) {
-      setMessage({ text: 'Please enter the full verification code sent to your email.', type: 'error' });
+      setMessage({ text: 'Please enter the 6-digit verification code sent to your email.', type: 'error' });
       return;
     }
 
@@ -78,13 +78,13 @@ export default function LoginPage() {
       }
 
       setMessage({
-        text: 'Account verified! Syncing your Canvas feed & settings...',
+        text: 'Account verified! Redirecting to settings...',
         type: 'success',
       });
 
       setTimeout(() => {
         window.location.href = '/settings';
-      }, 1200);
+      }, 1000);
     } catch (err: any) {
       setMessage({ text: err.message || 'Invalid or expired verification code.', type: 'error' });
     } finally {
@@ -114,8 +114,8 @@ export default function LoginPage() {
             </h1>
             <p className="text-sm text-slate-400">
               {step === 'email'
-                ? "We'll send you a code"
-                : `Enter the code sent to ${email}`}
+                ? "We'll send you a 6-digit code"
+                : `Enter the 6-digit code sent to ${email}`}
             </p>
           </div>
 
@@ -166,7 +166,7 @@ export default function LoginPage() {
               </button>
             </form>
           ) : (
-            /* Step 2 Form: Verification Code Input (Supports up to 8 digits) */
+            /* Step 2 Form: 6-Digit Code Input */
             <form onSubmit={handleVerifyCode} className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-300 mb-1.5">
@@ -176,11 +176,11 @@ export default function LoginPage() {
                   <input
                     type="text"
                     required
-                    maxLength={8}
-                    placeholder="52721567"
+                    maxLength={6}
+                    placeholder="527215"
                     value={otpCode}
                     onChange={(e) => setOtpCode(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 pl-10 text-center text-lg font-mono font-bold tracking-widest text-white placeholder-slate-600 focus:border-[#00E599] focus:outline-none focus:ring-1 focus:ring-[#00E599]"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 pl-10 text-center text-xl font-mono font-bold tracking-widest text-white placeholder-slate-600 focus:border-[#00E599] focus:outline-none focus:ring-1 focus:ring-[#00E599]"
                   />
                   <KeyRound className="absolute left-3 top-3.5 h-4 w-4 text-slate-500" />
                 </div>
