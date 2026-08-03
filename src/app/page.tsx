@@ -3,9 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { SwipeDeck } from '@/components/SwipeDeck';
+import { AddDeadlineModal } from '@/components/AddDeadlineModal';
 import { CanvasAssignment, PreferredAI, AI_PROVIDERS } from '@/lib/types';
 import { useDevice } from '@/lib/use-device';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Plus } from 'lucide-react';
 import Link from 'next/link';
 
 export default function HomePage() {
@@ -15,6 +16,7 @@ export default function HomePage() {
   const [noFeedUrl, setNoFeedUrl] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const { deviceType } = useDevice();
 
@@ -22,7 +24,6 @@ export default function HomePage() {
     setLoading(true);
     setError(null);
     try {
-      // Check local storage fallback first
       if (typeof window !== 'undefined') {
         const localAi = localStorage.getItem('deadlnr_preferred_ai') as PreferredAI;
         if (localAi && AI_PROVIDERS[localAi]) {
@@ -30,7 +31,7 @@ export default function HomePage() {
         }
       }
 
-      // Fetch settings from API
+      // Fetch settings
       const settingsRes = await fetch('/api/settings');
       if (settingsRes.ok) {
         const settingsData = await settingsRes.json();
@@ -42,7 +43,7 @@ export default function HomePage() {
         }
       }
 
-      // Fetch Canvas assignments
+      // Fetch Canvas feed assignments
       const feedRes = await fetch('/api/canvas/feed');
       const feedData = await feedRes.json();
 
@@ -50,7 +51,24 @@ export default function HomePage() {
         setError(feedData.error);
       }
 
-      setAssignments(feedData.assignments || []);
+      let fetchedList: CanvasAssignment[] = feedData.assignments || [];
+
+      // Read custom user assignments from localStorage
+      let customList: CanvasAssignment[] = [];
+      if (typeof window !== 'undefined') {
+        try {
+          const stored = localStorage.getItem('deadlnr_custom_assignments');
+          if (stored) customList = JSON.parse(stored);
+        } catch {}
+      }
+
+      // Merge custom deadlines & Canvas assignments, then sort by due date
+      const combined = [...customList, ...fetchedList];
+      const sorted = combined.sort(
+        (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+      );
+
+      setAssignments(sorted);
       setIsMock(!!feedData.isMock);
       setNoFeedUrl(!!feedData.noFeedUrl);
     } catch (err: any) {
@@ -65,11 +83,26 @@ export default function HomePage() {
     fetchData();
   }, []);
 
+  const handleCustomAssignmentAdded = (newAssignment: CanvasAssignment) => {
+    setAssignments((prev) => {
+      const updated = [newAssignment, ...prev];
+      return updated.sort(
+        (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+      );
+    });
+  };
+
   const currentAi = AI_PROVIDERS[preferredAi] || AI_PROVIDERS.gemini;
 
   return (
     <div className="min-h-screen bg-[#080A0F] text-slate-100 flex flex-col font-sans selection:bg-[#FF3B00]/30 selection:text-[#FF3B00]">
       <Navbar />
+
+      <AddDeadlineModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onAdded={handleCustomAssignmentAdded}
+      />
 
       <main className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 max-w-4xl mx-auto w-full">
         {/* Banner if Demo Mode / Feed URL missing */}
@@ -89,14 +122,24 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Header */}
-        <div className="text-center mb-5 sm:mb-6">
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight font-display">
-            What's due?
-          </h1>
-          <p className="text-sm text-slate-500 mt-1.5">
-            Skip or send to {currentAi.name}
-          </p>
+        {/* Header with Add Task Button */}
+        <div className="flex items-center justify-between w-full max-w-md sm:max-w-lg mb-5 sm:mb-6">
+          <div className="text-left">
+            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight font-display">
+              What's due?
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1">
+              Skip or send to {currentAi.name}
+            </p>
+          </div>
+
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-2xl bg-[#FF3B00] hover:bg-[#FF3B00]/90 px-4 py-2.5 text-xs sm:text-sm font-bold text-white shadow-lg shadow-[#FF3B00]/20 active:scale-95 transition-all font-display"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add Task</span>
+          </button>
         </div>
 
         {/* Center Container: Swipe Deck */}
