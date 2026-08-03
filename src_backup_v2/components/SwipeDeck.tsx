@@ -5,18 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { CanvasAssignment, PreferredAI, AI_PROVIDERS } from '@/lib/types';
 import { AssignmentCard } from './AssignmentCard';
+import { Toast } from './Toast';
 import { useDevice } from '@/lib/use-device';
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { toast } from 'sonner';
-import { X, Check, RotateCcw, CheckCircle2 } from 'lucide-react';
+import { X, Check, RotateCcw, CheckCircle2, History } from 'lucide-react';
 import Link from 'next/link';
 
 interface SwipeDeckProps {
@@ -36,13 +27,16 @@ export function SwipeDeck({
   const [swipingId, setSwipingId] = useState<string | null>(null);
   const [swipeOffset, setSwipeOffset] = useState<number>(0);
   const [historyCount, setHistoryCount] = useState({ left: 0, right: 0 });
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastSubtext, setToastSubtext] = useState<string | null>(null);
 
-  // Urgent swipe-left confirmation state (< 12 hours)
+  // State for < 12 hours urgent swipe-left confirmation
   const [pendingSkip, setPendingSkip] = useState<{
     assignment: CanvasAssignment;
     hoursLeft: number;
   } | null>(null);
 
+  // Device detection hook
   const { isPhone, isTablet, isDesktop } = useDevice();
 
   useEffect(() => {
@@ -51,6 +45,7 @@ export function SwipeDeck({
 
   const currentAi = AI_PROVIDERS[preferredAi] || AI_PROVIDERS.gemini;
 
+  // Haptic feedback for mobile
   const triggerHaptic = (pattern: number | number[] = 20) => {
     if (typeof window !== 'undefined' && 'vibrate' in navigator) {
       try {
@@ -61,6 +56,7 @@ export function SwipeDeck({
     }
   };
 
+  // Log swipe to server
   const logSwipe = async (assignment: CanvasAssignment, direction: 'left' | 'right') => {
     try {
       await fetch('/api/swipe', {
@@ -78,6 +74,7 @@ export function SwipeDeck({
     }
   };
 
+  // Execute actual left swipe animation
   const executeSwipeLeft = useCallback((targetAssignment: CanvasAssignment) => {
     setSwipingId(targetAssignment.id);
     setSwipeOffset(-320);
@@ -94,6 +91,7 @@ export function SwipeDeck({
     }, 200);
   }, []);
 
+  // Execute right swipe (launch AI with estimated completion time request in prompt)
   const executeSwipeRight = useCallback(
     (targetAssignment: CanvasAssignment) => {
       setSwipingId(targetAssignment.id);
@@ -103,6 +101,7 @@ export function SwipeDeck({
 
       const formattedDate = new Date(targetAssignment.dueDate).toLocaleString();
 
+      // Formatted prompt asking for estimated completion time at the beginning
       const promptText = `Help me get started on this assignment. Please first provide an estimated completion time for this task, then give me a step-by-step breakdown to complete it efficiently. Here's everything I know about it:
 
 Title: ${targetAssignment.title}
@@ -118,14 +117,17 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
         navigator.clipboard.writeText(promptText);
       }
 
-      toast.success(`Copied context for ${currentAi.name}`, {
-        description: `Launching ${currentAi.name} in a new tab...`,
-      });
-
+      setToastMessage(`Copied context for ${currentAi.name}.`);
+      setToastSubtext(`Launching ${currentAi.name} in a new tab...`);
       window.open(currentAi.url, '_blank');
 
       logSwipe(targetAssignment, 'right');
       setHistoryCount((prev) => ({ ...prev, right: prev.right + 1 }));
+
+      setTimeout(() => {
+        setToastMessage(null);
+        setToastSubtext(null);
+      }, 4000);
 
       setTimeout(() => {
         setDeck((prev) => prev.slice(1));
@@ -136,6 +138,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
     [currentAi]
   );
 
+  // Main swipe handler (checks if < 12h due date requires confirmation)
   const handleSwipe = useCallback(
     (direction: 'left' | 'right') => {
       if (deck.length === 0 || swipingId || pendingSkip) return;
@@ -146,6 +149,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
         const dueMs = new Date(targetAssignment.dueDate).getTime() - Date.now();
         const hoursLeft = dueMs / (1000 * 60 * 60);
 
+        // Check if due in under 12 hours
         if (hoursLeft > 0 && hoursLeft < 12) {
           setPendingSkip({
             assignment: targetAssignment,
@@ -162,6 +166,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
     [deck, swipingId, pendingSkip, executeSwipeLeft, executeSwipeRight]
   );
 
+  // Keyboard controls
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (deck.length === 0 || swipingId || pendingSkip) return;
@@ -176,6 +181,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [deck, swipingId, pendingSkip, handleSwipe]);
 
+  // Confetti on clear
   useEffect(() => {
     if (deck.length === 0 && initialAssignments.length > 0) {
       confetti({
@@ -187,6 +193,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
     }
   }, [deck.length, initialAssignments.length, isPhone]);
 
+  const activeCard = deck[0];
   const totalSwiped = historyCount.left + historyCount.right;
 
   const deckContainerClass = isPhone
@@ -199,54 +206,69 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
 
   return (
     <div className="relative flex flex-col items-center justify-center w-full max-w-2xl mx-auto">
-      {/* Urgent Deadline Confirmation via shadcn Dialog */}
-      <Dialog open={!!pendingSkip} onOpenChange={(open) => !open && setPendingSkip(null)}>
-        <DialogContent className="sm:max-w-md border-slate-800 bg-[#111622] text-white">
-          <DialogHeader>
-            <p className="text-xs font-bold uppercase tracking-wider text-[#FF0055] mb-1">
-              Due in {pendingSkip?.hoursLeft} {pendingSkip?.hoursLeft === 1 ? 'hour' : 'hours'}
-            </p>
-            <DialogTitle className="text-xl font-bold">
-              Skip &quot;{pendingSkip?.assignment.title}&quot;?
-            </DialogTitle>
-            <DialogDescription className="text-slate-400 text-sm">
-              This deadline is coming up very soon. Are you sure you want to skip it?
-            </DialogDescription>
-          </DialogHeader>
+      {/* Toast Notification */}
+      <Toast message={toastMessage} subtext={toastSubtext} onClose={() => setToastMessage(null)} />
 
-          <DialogFooter className="flex flex-row gap-3 pt-4 sm:justify-end">
-            <Button
-              variant="outline"
-              onClick={() => setPendingSkip(null)}
-              className="flex-1 sm:flex-initial border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800"
+      {/* Urgent Swipe-Left Confirmation Modal (< 12 hours) */}
+      <AnimatePresence>
+        {pendingSkip && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#080A0F]/80 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 12 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 12 }}
+              className="w-full max-w-sm rounded-2xl border border-slate-800 bg-[#111622] p-6"
             >
-              Keep it
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => pendingSkip && executeSwipeLeft(pendingSkip.assignment)}
-              className="flex-1 sm:flex-initial bg-[#FF0055] hover:bg-[#FF0055]/90 text-white font-bold"
-            >
-              Skip anyway
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              <p className="text-sm text-[#FF0055] font-bold mb-1">
+                Due in {pendingSkip.hoursLeft} {pendingSkip.hoursLeft === 1 ? 'hour' : 'hours'}
+              </p>
+
+              <h3 className="text-lg font-bold text-white mb-2">
+                Skip "{pendingSkip.assignment.title}"?
+              </h3>
+              <p className="text-sm text-slate-400 mb-6">
+                This is due soon. Are you sure you want to skip it?
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => executeSwipeLeft(pendingSkip.assignment)}
+                  className="flex-1 rounded-xl bg-[#FF0055] hover:bg-[#FF0055]/90 py-2.5 text-sm font-semibold text-white active:scale-95 transition-all"
+                >
+                  Skip anyway
+                </button>
+
+                <button
+                  onClick={() => setPendingSkip(null)}
+                  className="flex-1 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 py-2.5 text-sm font-semibold text-slate-300 active:scale-95 transition-all"
+                >
+                  Keep it
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Header Metrics */}
-      <div className="w-full flex items-center justify-between px-2 mb-3 text-xs text-slate-500 font-medium">
+      <div className="w-full flex items-center justify-between px-2 mb-3 text-xs text-slate-500">
         <span>{deck.length} remaining</span>
 
         {totalSwiped > 0 && (
           <div className="flex items-center gap-2">
-            <span className="text-[#FF0055] font-bold">✕ {historyCount.left}</span>
+            <span className="text-[#FF0055]">✕ {historyCount.left}</span>
             <span className="text-slate-700">·</span>
-            <span className="text-[#00E599] font-bold">✓ {historyCount.right}</span>
+            <span className="text-[#00E599]">✓ {historyCount.right}</span>
           </div>
         )}
       </div>
 
-      {/* Main Card Stack */}
+      {/* Main Card Stack Container */}
       <div className={`relative ${deckContainerClass} my-2`}>
         {deck.length > 0 ? (
           <div className="relative w-full h-full overflow-hidden rounded-[2.25rem]">
@@ -299,7 +321,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="flex h-full w-full flex-col items-center justify-center rounded-[2.25rem] border border-slate-800 bg-[#111622] p-8 sm:p-10 text-center"
+            className="flex h-full w-full flex-col items-center justify-center rounded-[2.25rem] border border-slate-800 bg-[#111622] p-8 sm:p-10 text-center card-tactile"
           >
             <div className="text-[#00E599] mb-5">
               <CheckCircle2 className="h-12 w-12 stroke-[2]" />
@@ -313,74 +335,69 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
             </p>
 
             <div className="flex flex-col w-full gap-3 max-w-xs">
-              <Button
+              <button
                 onClick={() => {
                   if (onRefreshFeed) onRefreshFeed();
                   setDeck(initialAssignments);
                 }}
-                className="w-full rounded-xl bg-[#FF3B00] hover:bg-[#FF3B00]/90 px-6 py-3 font-semibold text-white transition-all text-sm"
+                className="w-full rounded-xl bg-[#FF3B00] hover:bg-[#FF3B00]/90 px-6 py-3 font-semibold text-white active:scale-95 transition-all text-sm"
               >
                 Reload deck
-              </Button>
+              </button>
 
-              <Link href="/history" className="w-full">
-                <Button
-                  variant="outline"
-                  className="w-full rounded-xl border-slate-800 bg-[#111622] hover:bg-slate-800 text-slate-400 text-sm font-semibold"
-                >
-                  View history
-                </Button>
+              <Link
+                href="/history"
+                className="w-full inline-flex items-center justify-center rounded-xl bg-[#111622] hover:bg-slate-800 px-6 py-2.5 font-semibold text-slate-400 border border-slate-800 transition-colors text-sm"
+              >
+                View history
               </Link>
             </div>
           </motion.div>
         )}
       </div>
 
-      {/* Action Controls using shadcn Buttons */}
+      {/* Action Controls */}
       {deck.length > 0 && (
         <div className="flex items-center justify-center gap-6 sm:gap-10 mt-6 z-40">
-          <Button
-            size="icon"
-            variant="outline"
+          {/* Skip Button */}
+          <button
             onClick={() => handleSwipe('left')}
             disabled={!!swipingId}
             title="Skip / Dismiss (Left Arrow)"
-            className="h-16 w-16 sm:h-18 sm:w-18 rounded-2xl border-[#FF0055]/30 bg-[#111622] text-[#FF0055] hover:bg-[#FF0055] hover:text-white hover:border-[#FF0055] transition-all active:scale-90"
+            className="group flex h-16 w-16 sm:h-18 sm:w-18 items-center justify-center rounded-2xl border border-[#FF0055]/30 bg-[#111622] text-[#FF0055] transition-all hover:bg-[#FF0055] hover:text-white hover:border-[#FF0055] active:scale-90 disabled:opacity-50"
           >
             <X className="h-8 w-8 sm:h-9 sm:w-9 stroke-[2.5]" />
-          </Button>
+          </button>
 
-          <Button
-            size="icon"
-            variant="outline"
+          {/* Reset Stack */}
+          <button
             onClick={() => setDeck(initialAssignments)}
             disabled={!!swipingId}
             title="Reset Stack"
-            className="h-11 w-11 sm:h-12 sm:w-12 rounded-xl border-slate-800 bg-[#111622] text-slate-500 hover:text-white hover:bg-slate-800 transition-all active:scale-90"
+            className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-xl border border-slate-800 bg-[#111622] text-slate-500 hover:text-white hover:bg-slate-800 active:scale-90 transition-all disabled:opacity-50"
           >
             <RotateCcw className="h-4 w-4 sm:h-5 sm:w-5" />
-          </Button>
+          </button>
 
-          <Button
-            size="icon"
-            variant="outline"
+          {/* Start AI Button */}
+          <button
             onClick={() => handleSwipe('right')}
             disabled={!!swipingId}
             title={`Start with ${currentAi.name} (Right Arrow)`}
-            className="h-16 w-16 sm:h-18 sm:w-18 rounded-2xl border-[#00E599]/30 bg-[#111622] text-[#00E599] hover:bg-[#00E599] hover:text-slate-950 hover:border-[#00E599] transition-all active:scale-90"
+            className="group flex h-16 w-16 sm:h-18 sm:w-18 items-center justify-center rounded-2xl border border-[#00E599]/30 bg-[#111622] text-[#00E599] transition-all hover:bg-[#00E599] hover:text-[#080A0F] hover:border-[#00E599] active:scale-90 disabled:opacity-50"
           >
             <Check className="h-8 w-8 sm:h-9 sm:w-9 stroke-[3]" />
-          </Button>
+          </button>
         </div>
       )}
 
-      {/* Keyboard Hint */}
+      {/* Keyboard Hint (desktop only) */}
       {deck.length > 0 && isDesktop && (
-        <div className="mt-5 text-xs text-slate-600 font-medium">
-          <kbd className="px-1.5 py-0.5 rounded bg-slate-800/80 text-slate-400 text-[10px]">←</kbd>{' '}
-          skip{' · '}
-          <kbd className="px-1.5 py-0.5 rounded bg-slate-800/80 text-slate-400 text-[10px]">→</kbd>{' '}
-          {currentAi.name}
+        <div className="mt-5 text-xs text-slate-600">
+          <kbd className="px-1.5 py-0.5 rounded bg-slate-800/80 text-slate-400 text-[10px]">←</kbd>
+          {' '}skip{' · '}
+          <kbd className="px-1.5 py-0.5 rounded bg-slate-800/80 text-slate-400 text-[10px]">→</kbd>
+          {' '}{currentAi.name}
         </div>
       )}
     </div>

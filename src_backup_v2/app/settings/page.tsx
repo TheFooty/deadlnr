@@ -3,9 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { PreferredAI, AI_PROVIDERS } from '@/lib/types';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Lock, Check, HelpCircle, ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -18,6 +15,7 @@ export default function SettingsPage() {
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
+    // Read local fallback first
     if (typeof window !== 'undefined') {
       const localAi = localStorage.getItem('deadlnr_preferred_ai') as PreferredAI;
       if (localAi && AI_PROVIDERS[localAi]) {
@@ -60,6 +58,7 @@ export default function SettingsPage() {
     setSaving(true);
     setMessage(null);
 
+    // Always update localStorage & Cookie immediately
     if (typeof window !== 'undefined') {
       localStorage.setItem('deadlnr_preferred_ai', preferredAi);
       document.cookie = `deadlnr_preferred_ai=${preferredAi}; path=/; max-age=31536000`;
@@ -87,7 +86,7 @@ export default function SettingsPage() {
         type: 'success',
       });
       if (feedUrl.trim()) setHasFeedUrl(true);
-      setFeedUrl('');
+      setFeedUrl(''); // Clear input for privacy
     } catch (err: any) {
       setMessage({ text: err.message || 'An error occurred', type: 'error' });
     } finally {
@@ -101,13 +100,14 @@ export default function SettingsPage() {
 
       <main className="flex-1 max-w-3xl mx-auto w-full p-4 sm:p-6 md:p-8">
         <div className="flex items-center gap-3 mb-6">
-          <Link href="/">
-            <Button variant="outline" size="icon" className="h-9 w-9 border-slate-800 bg-slate-900 text-slate-400 hover:text-white">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
+          <Link
+            href="/"
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-white font-display">App Settings</h1>
+            <h1 className="text-2xl font-black text-white font-display">App Settings</h1>
             <p className="text-xs text-slate-400">Configure your Canvas feed & preferred AI chat assistant</p>
           </div>
         </div>
@@ -126,71 +126,70 @@ export default function SettingsPage() {
         )}
 
         <form onSubmit={handleSave} className="space-y-8">
-          {/* Section 1: Preferred AI Picker using shadcn Card & Badges */}
-          <Card className="border-slate-800 bg-[#111622] p-6">
-            <CardHeader className="p-0 mb-4">
-              <CardTitle className="text-lg font-bold text-white">Default AI Assistant</CardTitle>
-              <CardDescription className="text-sm text-slate-400">
-                Swiping right copies assignment context and opens your chosen AI chat.
-              </CardDescription>
-            </CardHeader>
+          {/* Section 1: Preferred AI Picker */}
+          <div className="rounded-2xl border border-slate-800 bg-[#111622] p-6 card-tactile">
+            <h2 className="text-lg font-bold text-white mb-1 font-display">
+              Default AI Assistant
+            </h2>
+            <p className="text-sm text-slate-400 mb-5">
+              Swiping right copies assignment context and opens your chosen AI chat.
+            </p>
 
-            <CardContent className="p-0">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {(Object.keys(AI_PROVIDERS) as PreferredAI[]).map((key) => {
-                  const provider = AI_PROVIDERS[key];
-                  const isSelected = preferredAi === key;
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {(Object.keys(AI_PROVIDERS) as PreferredAI[]).map((key) => {
+                const provider = AI_PROVIDERS[key];
+                const isSelected = preferredAi === key;
 
-                  return (
-                    <label
-                      key={key}
-                      onClick={() => handleAiSelect(key)}
-                      className={`relative flex items-center justify-between rounded-xl border p-4 cursor-pointer transition-all ${
-                        isSelected
-                          ? 'border-[#FF3B00] bg-[#FF3B00]/5 text-white'
-                          : 'border-slate-800 bg-slate-950/60 hover:border-slate-700 text-slate-300'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="preferred_ai"
-                        value={key}
-                        checked={isSelected}
-                        onChange={() => handleAiSelect(key)}
-                        className="sr-only"
-                      />
+                return (
+                  <label
+                    key={key}
+                    onClick={() => handleAiSelect(key)}
+                    className={`relative flex items-center gap-3 rounded-xl border p-4 cursor-pointer transition-all ${
+                      isSelected
+                        ? 'border-[#FF3B00] bg-[#FF3B00]/5'
+                        : 'border-slate-800 bg-slate-950/60 hover:border-slate-700'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="preferred_ai"
+                      value={key}
+                      checked={isSelected}
+                      onChange={() => handleAiSelect(key)}
+                      className="sr-only"
+                    />
 
-                      <span className="font-bold text-sm">{provider.name}</span>
+                    <p className="font-bold text-white text-sm">{provider.name}</p>
 
-                      {isSelected && (
-                        <Badge className="bg-[#FF3B00] text-white hover:bg-[#FF3B00] px-1.5 py-0.5 rounded-full">
-                          <Check className="h-3 w-3 stroke-[3]" />
-                        </Badge>
-                      )}
-                    </label>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
+                    {isSelected && (
+                      <div className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#FF3B00] text-white">
+                        <Check className="h-3 w-3 stroke-[3]" />
+                      </div>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
 
           {/* Section 2: Canvas iCal Feed URL */}
-          <Card className="border-slate-800 bg-[#111622] p-6">
-            <CardHeader className="p-0 mb-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-bold text-white">Canvas Calendar Feed</CardTitle>
-                {hasFeedUrl && (
-                  <Badge variant="secondary" className="bg-[#00E599]/10 text-[#00E599] border-0">
-                    Saved
-                  </Badge>
-                )}
-              </div>
-              <CardDescription className="text-sm text-slate-400">
-                Paste your personal Canvas iCal feed link. No admin key or access token required.
-              </CardDescription>
-            </CardHeader>
+          <div className="rounded-2xl border border-slate-800 bg-[#111622] p-6 card-tactile">
+            <div className="flex items-center justify-between mb-1">
+              <h2 className="text-lg font-bold text-white font-display">
+                Canvas Calendar Feed
+              </h2>
+              {hasFeedUrl && (
+                <span className="text-xs font-semibold text-[#00E599]">
+                  Saved
+                </span>
+              )}
+            </div>
 
-            <CardContent className="p-0 space-y-4">
+            <p className="text-sm text-slate-400 mb-4">
+              Paste your personal Canvas iCal feed link. No admin key or access token required.
+            </p>
+
+            <div className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-300 mb-1.5">
                   iCal Feed URL (.ics)
@@ -204,6 +203,7 @@ export default function SettingsPage() {
                 />
               </div>
 
+              {/* Step-by-Step Instructions */}
               <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-4 text-xs text-slate-300 space-y-2">
                 <div className="flex items-center gap-2 text-slate-200 font-bold">
                   <HelpCircle className="h-4 w-4 text-[#FF3B00]" />
@@ -224,22 +224,24 @@ export default function SettingsPage() {
                 </ol>
               </div>
 
+              {/* Privacy Note */}
               <p className="flex items-center gap-2 text-[11px] text-slate-500">
                 <Lock className="h-3.5 w-3.5 shrink-0" />
                 Your feed URL is stored securely and parsed server-side.
               </p>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
+          {/* Submit Button */}
           <div className="flex justify-end">
-            <Button
+            <button
               type="submit"
               disabled={saving}
-              className="bg-[#FF3B00] hover:bg-[#FF3B00]/90 text-white font-bold px-8 py-3 rounded-xl transition-all font-display"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#FF3B00] hover:bg-[#FF3B00]/90 px-8 py-3.5 text-sm font-bold text-white active:scale-95 transition-all disabled:opacity-50 font-display"
             >
-              {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
               <span>Save Settings</span>
-            </Button>
+            </button>
           </div>
         </form>
       </main>

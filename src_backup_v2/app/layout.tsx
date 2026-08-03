@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
-import { Space_Grotesk, Plus_Jakarta_Sans, Space_Mono } from 'next/font/google';
-import { TooltipProvider } from '@/components/ui/tooltip';
-import { Toaster } from '@/components/ui/sonner';
+import { Space_Grotesk, Plus_Jakarta_Sans, Space_Mono, Geist } from 'next/font/google';
 import './globals.css';
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
@@ -39,13 +40,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`dark ${spaceGrotesk.variable} ${plusJakarta.variable} ${spaceMono.variable}`}
+      className={cn("dark", spaceGrotesk.variable, plusJakarta.variable, spaceMono.variable, "font-sans", geist.variable)}
     >
       <body className="font-sans bg-[#080A0F] text-[#F3F4F6] min-h-screen antialiased bg-radial-gradient bg-grid-pattern selection:bg-[#FF3B00]/30 selection:text-[#FF3B00]">
-        <TooltipProvider>
-          {children}
-          <Toaster position="bottom-center" theme="dark" />
-        </TooltipProvider>
+        {children}
       </body>
     </html>
   );
