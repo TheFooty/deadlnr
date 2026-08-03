@@ -58,49 +58,20 @@ export function SwipeDeck({
     setDeck(initialAssignments);
   }, [initialAssignments]);
 
-  // Escalating Scared Deadline Notifications starting 3 days before deadline
+  // Escalating Scared Deadline Email Notifications starting 3 days before deadline
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window && initialAssignments.length > 0) {
-      if (Notification.permission === 'default') {
-        Notification.requestPermission();
-      }
-      if (Notification.permission === 'granted') {
-        const now = Date.now();
-        const urgent = initialAssignments.filter((a) => {
-          const dueMs = new Date(a.dueDate).getTime();
-          const hoursLeft = (dueMs - now) / (1000 * 60 * 60);
-          return hoursLeft > 0 && hoursLeft <= 72; // Within 3 days
-        });
-
-        if (urgent.length > 0) {
-          const target = urgent[0];
-          const dueMs = new Date(target.dueDate).getTime();
-          const hoursLeft = Math.max(1, Math.round((dueMs - now) / (1000 * 60 * 60)));
-
-          let title = '';
-          let body = '';
-
-          if (hoursLeft <= 12) {
-            title = '🚨 EMERGENCY DEADLINE WARNING!';
-            body = `"${target.title}" is due in ONLY ${hoursLeft} hours! THIS IS NOT A DRILL! 😱`;
-          } else if (hoursLeft <= 24) {
-            title = '😱 24 HOURS LEFT!';
-            body = `"${target.title}" is due tomorrow! We need to finish this NOW!`;
-          } else {
-            title = '😰 Nervous Reminder (3 Days Left)';
-            body = `"${target.title}" is due in ${Math.round(hoursLeft / 24)} days. Should we start?`;
-          }
-
-          const lastNotified = localStorage.getItem(`deadlnr_notified_${target.id}`);
-          if (!lastNotified) {
-            try {
-              new Notification(title, { body, icon: '/favicon.ico' });
-              localStorage.setItem(`deadlnr_notified_${target.id}`, Date.now().toString());
-            } catch {}
-          }
-        }
+    async function sendEmailNotifications() {
+      if (initialAssignments.length > 0) {
+        try {
+          await fetch('/api/notifications/check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assignments: initialAssignments }),
+          });
+        } catch (err) {}
       }
     }
+    sendEmailNotifications();
   }, [initialAssignments]);
 
   const currentAi = AI_PROVIDERS[preferredAi] || AI_PROVIDERS.gemini;
