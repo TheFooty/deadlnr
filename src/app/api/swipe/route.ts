@@ -11,9 +11,7 @@ export async function GET(request: NextRequest) {
     if (cookieHeader) {
       try {
         history = JSON.parse(cookieHeader);
-      } catch {
-        // Ignore parse error
-      }
+      } catch {}
     }
 
     // 2. Read from Supabase if user is logged in
@@ -29,7 +27,6 @@ export async function GET(request: NextRequest) {
           .order('swiped_at', { ascending: false });
 
         if (dbHistory && dbHistory.length > 0) {
-          // Merge DB history with cookie history, deduplicating by ID/timestamp
           const dbEvents: SwipeEvent[] = dbHistory.map((item) => ({
             assignment_id: item.assignment_id,
             assignment_title: item.assignment_title,
@@ -38,19 +35,22 @@ export async function GET(request: NextRequest) {
             swiped_at: item.swiped_at,
           }));
 
-          const combined = [...dbEvents, ...history];
-          const unique = Array.from(
-            new Map(combined.map((item) => [`${item.assignment_id}_${item.swiped_at}`, item])).values()
-          );
-
-          history = unique;
+          history = [...dbEvents, ...history];
         }
       }
-    } catch {
-      // Ignore Supabase error if table doesn't exist
+    } catch {}
+
+    // Deduplicate by assignment_id so no single assignment appears twice in history
+    const uniqueMap = new Map<string, SwipeEvent>();
+    for (const item of history) {
+      if (!uniqueMap.has(item.assignment_id)) {
+        uniqueMap.set(item.assignment_id, item);
+      }
     }
 
-    return NextResponse.json({ history });
+    const uniqueHistory = Array.from(uniqueMap.values());
+
+    return NextResponse.json({ history: uniqueHistory });
   } catch (error: any) {
     return NextResponse.json({ history: [] });
   }
@@ -84,13 +84,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Add new event at the beginning (max 50 items)
+    // Deduplicate: filter out any existing entry for this assignment_id before adding
+    history = history.filter((item) => item.assignment_id !== assignment_id);
     history.unshift(newEvent);
     if (history.length > 50) history = history.slice(0, 50);
 
     const response = NextResponse.json({ success: true, event: newEvent });
 
-    // Save updated history in cookie for 1 year
     response.cookies.set('deadlnr_swipe_history', JSON.stringify(history), {
       path: '/',
       maxAge: 31536000,
@@ -104,6 +104,13 @@ export async function POST(request: NextRequest) {
       const { data: { session } } = await supabase.auth.getSession();
 
       if (session?.user?.id) {
+        // Delete previous entry for this assignment if exists, then insert
+        await supabase
+          .from('swipe_history')
+          .delete()
+          .eq('user_id', session.user.id)
+          .eq('assignment_id', assignment_id);
+
         await supabase.from('swipe_history').insert({
           user_id: session.user.id,
           assignment_id,
@@ -114,7 +121,7 @@ export async function POST(request: NextRequest) {
         });
       }
     } catch (dbErr) {
-      // Cookie already saved, so silent fallback
+      // Cookie already saved
     }
 
     return response;

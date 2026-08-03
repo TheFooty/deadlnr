@@ -7,7 +7,7 @@ import { CanvasAssignment, PreferredAI, AI_PROVIDERS } from '@/lib/types';
 import { AssignmentCard } from './AssignmentCard';
 import { Toast } from './Toast';
 import { useDevice } from '@/lib/use-device';
-import { X, Check, RotateCcw, CheckCircle2, History, Layers, Smartphone, Tablet, Monitor, AlertTriangle, Clock } from 'lucide-react';
+import { X, Check, RotateCcw, CheckCircle2, History, Layers, AlertTriangle, Clock } from 'lucide-react';
 import Link from 'next/link';
 
 interface SwipeDeckProps {
@@ -23,7 +23,7 @@ export function SwipeDeck({
   isMockData = false,
   onRefreshFeed,
 }: SwipeDeckProps) {
-  const [deck, setDeck] = useState<CanvasAssignment[]>(initialAssignments);
+  const [deck, setDeck] = useState<CanvasAssignment[]>([]);
   const [swipingId, setSwipingId] = useState<string | null>(null);
   const [swipeOffset, setSwipeOffset] = useState<number>(0);
   const [historyCount, setHistoryCount] = useState({ left: 0, right: 0 });
@@ -36,10 +36,21 @@ export function SwipeDeck({
     hoursLeft: number;
   } | null>(null);
 
-  // Device detection hook
   const { isPhone, isTablet, isDesktop } = useDevice();
 
+  // Load deck & filter out swiped IDs so they don't reappear on page navigation
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const swipedRaw = sessionStorage.getItem('deadlnr_swiped_ids');
+        if (swipedRaw) {
+          const swipedSet = new Set(JSON.parse(swipedRaw));
+          const unswiped = initialAssignments.filter((a) => !swipedSet.has(a.id));
+          setDeck(unswiped);
+          return;
+        }
+      } catch {}
+    }
     setDeck(initialAssignments);
   }, [initialAssignments]);
 
@@ -50,14 +61,28 @@ export function SwipeDeck({
     if (typeof window !== 'undefined' && 'vibrate' in navigator) {
       try {
         navigator.vibrate(pattern);
-      } catch {
-        // Ignore
-      }
+      } catch {}
     }
   };
 
-  // Log swipe to server & localStorage
+  // Helper to record swiped assignment ID in sessionStorage
+  const markSwipedInSession = (assignmentId: string) => {
+    if (typeof window !== 'undefined') {
+      try {
+        const swipedRaw = sessionStorage.getItem('deadlnr_swiped_ids');
+        const swipedArr: string[] = swipedRaw ? JSON.parse(swipedRaw) : [];
+        if (!swipedArr.includes(assignmentId)) {
+          swipedArr.push(assignmentId);
+          sessionStorage.setItem('deadlnr_swiped_ids', JSON.stringify(swipedArr));
+        }
+      } catch {}
+    }
+  };
+
+  // Deduplicated Log swipe to server & localStorage
   const logSwipe = async (assignment: CanvasAssignment, direction: 'left' | 'right') => {
+    markSwipedInSession(assignment.id);
+
     const newEvent = {
       assignment_id: assignment.id,
       assignment_title: assignment.title,
@@ -70,8 +95,10 @@ export function SwipeDeck({
       try {
         const stored = localStorage.getItem('deadlnr_swipe_history');
         const history = stored ? JSON.parse(stored) : [];
-        history.unshift(newEvent);
-        localStorage.setItem('deadlnr_swipe_history', JSON.stringify(history.slice(0, 50)));
+        // Deduplicate before unshifting so urgent warning items don't double log
+        const filtered = history.filter((item: any) => item.assignment_id !== assignment.id);
+        filtered.unshift(newEvent);
+        localStorage.setItem('deadlnr_swipe_history', JSON.stringify(filtered.slice(0, 50)));
       } catch {}
     }
 
@@ -103,10 +130,9 @@ export function SwipeDeck({
     }, 200);
   }, []);
 
-  // Execute right swipe (iOS Safari popup blocker fix: open window synchronously first!)
+  // Execute right swipe (iOS Safari popup blocker fix)
   const executeSwipeRight = useCallback(
     (targetAssignment: CanvasAssignment) => {
-      // Synchronously open window FIRST to bypass iOS Safari popup blocker
       let aiTab: Window | null = null;
       try {
         aiTab = window.open('about:blank', '_blank');
@@ -187,6 +213,15 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
     [deck, swipingId, pendingSkip, executeSwipeLeft, executeSwipeRight]
   );
 
+  // Explicit reload deck handler
+  const handleReloadDeck = () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('deadlnr_swiped_ids');
+    }
+    if (onRefreshFeed) onRefreshFeed();
+    setDeck(initialAssignments);
+  };
+
   // Keyboard controls
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -214,7 +249,6 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
     }
   }, [deck.length, initialAssignments.length, isPhone]);
 
-  const activeCard = deck[0];
   const totalSwiped = historyCount.left + historyCount.right;
 
   const deckContainerClass = isPhone
@@ -366,10 +400,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
 
             <div className="flex flex-col w-full gap-3 max-w-xs">
               <button
-                onClick={() => {
-                  if (onRefreshFeed) onRefreshFeed();
-                  setDeck(initialAssignments);
-                }}
+                onClick={handleReloadDeck}
                 className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-[#FF3B00] hover:bg-[#FF3B00]/90 px-6 py-3 font-bold text-white shadow-xl shadow-[#FF3B00]/20 active:scale-95 transition-all text-sm font-display"
               >
                 <RotateCcw className="h-4 w-4" />
@@ -401,9 +432,9 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
           </button>
 
           <button
-            onClick={() => setDeck(initialAssignments)}
+            onClick={handleReloadDeck}
             disabled={!!swipingId}
-            title="Reset Stack"
+            title="Reload Deck"
             className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-2xl border border-slate-800 bg-[#111622] text-slate-400 hover:text-white hover:bg-slate-800 active:scale-90 transition-all shadow-md disabled:opacity-50"
           >
             <RotateCcw className="h-4 w-4 sm:h-5 sm:w-5" />
