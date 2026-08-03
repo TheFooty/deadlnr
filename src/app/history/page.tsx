@@ -12,14 +12,41 @@ export default function HistoryPage() {
 
   const fetchHistory = async () => {
     setLoading(true);
+    let localEvents: SwipeEvent[] = [];
+
+    // 1. Read local storage first
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('deadlnr_swipe_history');
+        if (stored) localEvents = JSON.parse(stored);
+      } catch {
+        // Ignore
+      }
+    }
+
     try {
       const res = await fetch('/api/swipe');
       if (res.ok) {
         const data = await res.json();
-        setHistory(data.history || []);
+        const apiEvents: SwipeEvent[] = data.history || [];
+
+        // Combine local storage and API history
+        const combined = [...apiEvents, ...localEvents];
+        const unique = Array.from(
+          new Map(combined.map((item) => [`${item.assignment_id}_${item.swiped_at}`, item])).values()
+        );
+
+        setHistory(unique);
+
+        if (typeof window !== 'undefined' && unique.length > 0) {
+          localStorage.setItem('deadlnr_swipe_history', JSON.stringify(unique.slice(0, 50)));
+        }
+      } else {
+        setHistory(localEvents);
       }
     } catch (err) {
       console.error('Failed to load swipe history:', err);
+      setHistory(localEvents);
     } finally {
       setLoading(false);
     }
@@ -44,7 +71,7 @@ export default function HistoryPage() {
             </Link>
             <div>
               <h1 className="text-2xl font-black text-white">Swipe History</h1>
-              <p className="text-xs text-slate-400">Review your past skipped and started assignments</p>
+              <p className="text-xs text-slate-400">Review your past skipped and AI-started assignments</p>
             </div>
           </div>
 
@@ -57,52 +84,52 @@ export default function HistoryPage() {
         </div>
 
         {loading ? (
-          <div className="flex h-64 flex-col items-center justify-center rounded-2xl border border-slate-800 bg-[#111622]/60">
-            <RefreshCw className="h-6 w-6 text-slate-500 animate-spin mb-2" />
-            <p className="text-xs text-slate-500">Loading swipe log...</p>
+          <div className="flex h-64 flex-col items-center justify-center rounded-3xl border border-slate-800 bg-[#111622]/40">
+            <RefreshCw className="h-8 w-8 text-[#FF3B00] animate-spin mb-2" />
+            <p className="text-xs text-slate-400">Loading swipe log...</p>
           </div>
         ) : history.length === 0 ? (
-          <div className="flex h-64 flex-col items-center justify-center rounded-2xl border border-slate-800 bg-[#111622]/60 p-6 text-center">
-            <History className="h-8 w-8 text-slate-600 mb-3" />
+          <div className="flex h-64 flex-col items-center justify-center rounded-3xl border border-slate-800 bg-[#111622]/40 p-6 text-center">
+            <History className="h-10 w-10 text-slate-600 mb-3" />
             <h3 className="text-base font-bold text-white mb-1">No Swipes Recorded Yet</h3>
-            <p className="text-sm text-slate-400 max-w-xs mb-4">
+            <p className="text-xs text-slate-400 max-w-xs mb-4">
               Start swiping on assignments on the main deck to build your activity history.
             </p>
             <Link
               href="/"
-              className="rounded-xl bg-[#FF3B00] hover:bg-[#FF3B00]/90 px-4 py-2 text-xs font-bold text-white transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#FF3B00] hover:bg-[#FF3B00]/90 px-4 py-2 text-xs font-bold text-white shadow-lg"
             >
-              Go to Swipe Deck
+              <span>Go to Swipe Deck</span>
             </Link>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {history.map((item, idx) => {
               const isRight = item.direction === 'right';
 
               return (
                 <div
                   key={idx}
-                  className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 bg-[#111622]/60 p-4"
+                  className="flex items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-[#111622]/60 p-4 backdrop-blur-md"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-3">
                     <div
-                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${
                         isRight
-                          ? 'bg-[#00E599]/10 text-[#00E599]'
-                          : 'bg-[#FF0055]/10 text-[#FF0055]'
+                          ? 'border-[#00E599]/30 bg-[#00E599]/10 text-[#00E599]'
+                          : 'border-[#FF0055]/30 bg-[#FF0055]/10 text-[#FF0055]'
                       }`}
                     >
-                      {isRight ? <ArrowRight className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                      {isRight ? <ArrowRight className="h-5 w-5" /> : <X className="h-5 w-5" />}
                     </div>
 
-                    <div className="min-w-0">
+                    <div>
                       <h4 className="text-sm font-bold text-white line-clamp-1">{item.assignment_title}</h4>
-                      <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
-                        <span>{item.course}</span>
+                      <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400">
+                        <span className="text-slate-300 font-semibold">{item.course}</span>
                         {item.swiped_at && (
                           <>
-                            <span className="text-slate-700">·</span>
+                            <span>·</span>
                             <span>
                               {new Date(item.swiped_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
@@ -113,7 +140,7 @@ export default function HistoryPage() {
                   </div>
 
                   <span
-                    className={`shrink-0 text-xs font-semibold ${
+                    className={`shrink-0 text-xs font-semibold px-3 py-1 rounded-full ${
                       isRight ? 'text-[#00E599]' : 'text-[#FF0055]'
                     }`}
                   >
