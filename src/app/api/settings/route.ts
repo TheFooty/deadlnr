@@ -25,19 +25,27 @@ export async function GET() {
 
     const userId = session.user.id;
 
-    // Get settings from Supabase
-    const { data: settings } = await supabase
+    // Get settings from Supabase safely using maybeSingle()
+    const { data: settings, error: settingsErr } = await supabase
       .from('user_settings')
       .select('preferred_ai, theme, show_demo_data, custom_assignments')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
-    // Check credentials existence
-    const { data: creds } = await supabase
+    if (settingsErr) {
+      console.error('Error fetching user_settings:', settingsErr);
+    }
+
+    // Check credentials existence safely using maybeSingle()
+    const { data: creds, error: credsErr } = await supabase
       .from('canvas_credentials')
       .select('user_id')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
+
+    if (credsErr) {
+      console.error('Error checking canvas_credentials:', credsErr);
+    }
 
     const selectedAi = (settings?.preferred_ai as PreferredAI) || cookieAi || 'gemini';
     const selectedTheme = (settings?.theme as ThemeId) || cookieTheme || 'default';
@@ -52,6 +60,7 @@ export async function GET() {
       isGuest: false,
     });
   } catch (error: any) {
+    console.error('Error in GET /api/settings:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -116,9 +125,13 @@ export async function POST(request: NextRequest) {
     if (typeof show_demo_data === 'boolean') upsertData.show_demo_data = show_demo_data;
     if (Array.isArray(custom_assignments)) upsertData.custom_assignments = custom_assignments;
 
-    await supabase
+    const { error: upsertErr } = await supabase
       .from('user_settings')
-      .upsert(upsertData);
+      .upsert(upsertData, { onConflict: 'user_id' });
+
+    if (upsertErr) {
+      console.error('Failed to upsert user_settings:', upsertErr);
+    }
 
     // Save/update encrypted feed URL if provided
     if (feed_url && typeof feed_url === 'string' && feed_url.trim().length > 0) {
@@ -129,13 +142,20 @@ export async function POST(request: NextRequest) {
 
       const encryptedFeedUrl = encryptText(trimmedUrl);
 
-      await supabase
+      const { error: feedErr } = await supabase
         .from('canvas_credentials')
-        .upsert({
-          user_id: userId,
-          encrypted_feed_url: encryptedFeedUrl,
-          updated_at: new Date().toISOString(),
-        });
+        .upsert(
+          {
+            user_id: userId,
+            encrypted_feed_url: encryptedFeedUrl,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id' }
+        );
+
+      if (feedErr) {
+        console.error('Failed to upsert canvas_credentials:', feedErr);
+      }
     }
 
     return response;

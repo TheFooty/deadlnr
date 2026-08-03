@@ -60,12 +60,30 @@ export default function SettingsPage() {
     loadSettings();
   }, [setTheme]);
 
+  const handleThemeSelect = (selectedTheme: ThemeId) => {
+    setTheme(selectedTheme);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('deadlnr_theme', selectedTheme);
+      document.cookie = `deadlnr_theme=${selectedTheme}; path=/; max-age=31536000`;
+    }
+    fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ theme: selectedTheme }),
+    }).catch(() => {});
+  };
+
   const handleAiSelect = (ai: PreferredAI) => {
     setPreferredAi(ai);
     if (typeof window !== 'undefined') {
       localStorage.setItem('deadlnr_preferred_ai', ai);
       document.cookie = `deadlnr_preferred_ai=${ai}; path=/; max-age=31536000`;
     }
+    fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ preferred_ai: ai }),
+    }).catch(() => {});
   };
 
   const handleDemoToggle = (enabled: boolean) => {
@@ -74,6 +92,11 @@ export default function SettingsPage() {
       localStorage.setItem('deadlnr_show_demo_data', String(enabled));
       document.cookie = `deadlnr_show_demo_data=${enabled}; path=/; max-age=31536000`;
     }
+    fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ show_demo_data: enabled }),
+    }).catch(() => {});
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -107,7 +130,7 @@ export default function SettingsPage() {
       }
 
       setMessage({
-        text: `Settings saved successfully! Account preferences synced.`,
+        text: `Settings saved successfully! Account preferences synced across your devices.`,
         type: 'success',
       });
       if (feedUrl.trim()) setHasFeedUrl(true);
@@ -170,7 +193,7 @@ export default function SettingsPage() {
                   <button
                     key={themeKey}
                     type="button"
-                    onClick={() => setTheme(themeKey)}
+                    onClick={() => handleThemeSelect(themeKey)}
                     className={`relative flex items-center justify-between rounded-xl border p-4 transition-all text-left ${
                       isSelected
                         ? 'border-[#FF3B00] bg-[#FF3B00]/10 shadow-lg'
@@ -261,7 +284,7 @@ export default function SettingsPage() {
                       className="sr-only"
                     />
 
-                    <p className="font-bold text-white text-sm">{provider.name}</p>
+                    <p className="font-bold text-[#FFFFFF] text-sm">{provider.name}</p>
 
                     {isSelected && (
                       <div className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#FF3B00] text-white">
