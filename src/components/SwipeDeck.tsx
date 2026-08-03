@@ -7,7 +7,7 @@ import { CanvasAssignment, PreferredAI, AI_PROVIDERS } from '@/lib/types';
 import { AssignmentCard } from './AssignmentCard';
 import { Toast } from './Toast';
 import { useDevice } from '@/lib/use-device';
-import { X, Check, RotateCcw, CheckCircle2, History as HistoryIcon, Layers, AlertTriangle, Clock, ExternalLink, Sparkles, CheckCircle } from 'lucide-react';
+import { X, Check, RotateCcw, CheckCircle2, History as HistoryIcon, Layers, AlertTriangle, Clock, ExternalLink, Sparkles, CheckCircle, Paperclip } from 'lucide-react';
 import Link from 'next/link';
 
 interface SwipeDeckProps {
@@ -192,11 +192,16 @@ export function SwipeDeck({
 
     const formattedDate = new Date(targetAssignment.dueDate).toLocaleString();
 
+    let attachmentsText = '';
+    if (targetAssignment.attachments && targetAssignment.attachments.length > 0) {
+      attachmentsText = `\nAttached Files: ${targetAssignment.attachments.map((a) => a.name).join(', ')}`;
+    }
+
     const promptText = `Help me get started on this assignment. Please first provide an estimated completion time for this task, then give me a step-by-step breakdown to complete it efficiently. Here's everything I know about it:
 
 Title: ${targetAssignment.title}
 Course: ${targetAssignment.course}
-Due Date: ${formattedDate}
+Due Date: ${formattedDate}${attachmentsText}
 
 Description:
 ${targetAssignment.description || 'Sparse description in calendar feed. Check Canvas URL below.'}
@@ -350,6 +355,35 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
                   {activeDetailAssignment.description || 'No detailed instructions provided in calendar feed. Open Canvas for full details.'}
                 </p>
               </div>
+
+              {/* Attached Files List in Detail Modal */}
+              {activeDetailAssignment.attachments && activeDetailAssignment.attachments.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">
+                    Attached Files ({activeDetailAssignment.attachments.length}):
+                  </p>
+                  <div className="space-y-1.5">
+                    {activeDetailAssignment.attachments.map((att) => (
+                      <div
+                        key={att.id}
+                        className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs"
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <Paperclip className="h-3.5 w-3.5 text-[#00E599] shrink-0" />
+                          <span className="font-semibold text-slate-200 truncate">{att.name}</span>
+                        </div>
+                        <a
+                          href={att.dataUrl}
+                          download={att.name}
+                          className="text-[#00E599] hover:underline shrink-0 font-bold"
+                        >
+                          Download
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <button

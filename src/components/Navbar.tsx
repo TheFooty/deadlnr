@@ -4,10 +4,11 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { DeadlnrLogo } from './Logo';
-import { Settings, History, Layers, User, LogOut } from 'lucide-react';
+import { Settings, History, Layers, User, LogOut, Calendar } from 'lucide-react';
 
 const navLinks = [
   { href: '/', label: 'Deck', Icon: Layers },
+  { href: '/tasks', label: 'Tasks', Icon: Calendar },
   { href: '/history', label: 'History', Icon: History },
   { href: '/settings', label: 'Settings', Icon: Settings },
 ];

@@ -1,3 +1,11 @@
+export interface TaskAttachment {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  dataUrl: string; // Base64 data URL
+}
+
 export interface CanvasAssignment {
   id: string;
   title: string;
@@ -5,6 +13,8 @@ export interface CanvasAssignment {
   dueDate: string; // ISO String
   description: string;
   canvasUrl: string;
+  attachments?: TaskAttachment[];
+  isCustom?: boolean;
 }
 
 export type PreferredAI = 'gemini' | 'chatgpt' | 'claude';
