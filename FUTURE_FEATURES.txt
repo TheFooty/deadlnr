@@ -1,0 +1,18 @@
+===================================================================
+DEADLNR — FUTURE APP FEATURES & IDEAS
+===================================================================
+
+1. NATIVE APP APPLICATION LOCKER (iOS & Android Screen Time / Accessibility API):
+   - Ability to select specific distracting apps (e.g. TikTok, Instagram, YouTube, Twitter/X, Reddit, Games).
+   - Lock selected apps on device when urgent Canvas deadlines are due (< 24h).
+   - Apps unlock only when assignments are swiped, triaged, or marked as "Done" inside Deadlnr.
+
+2. ESCALATING SCARED NOTIFICATION ENGINE:
+   - Panic-based push notification system starting 3 days before deadlines.
+   - 3 Days Out: Nervous reminders ("Hey... deadline coming up in 3 days").
+   - 1 Day Out: Anxious alerts ("ONLY 24 HOURS LEFT! Please start!").
+   - Under 12 Hours: Full panic mode ("12 HOURS! THIS IS NOT A DRILL! 😱").
+
+3. VERIFIED COMPLETION TRACKING:
+   - "I've Done It!" celebratory completion flow with confetti burst 🎉.
+   - Canvas API submission status check sync.

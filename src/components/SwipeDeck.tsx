@@ -7,7 +7,7 @@ import { CanvasAssignment, PreferredAI, AI_PROVIDERS } from '@/lib/types';
 import { AssignmentCard } from './AssignmentCard';
 import { Toast } from './Toast';
 import { useDevice } from '@/lib/use-device';
-import { X, Check, RotateCcw, CheckCircle2, History, Layers, AlertTriangle, Clock } from 'lucide-react';
+import { X, Check, RotateCcw, CheckCircle2, History as HistoryIcon, Layers, AlertTriangle, Clock, ExternalLink, Sparkles, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 
 interface SwipeDeckProps {
@@ -27,6 +27,7 @@ export function SwipeDeck({
   const [swipingId, setSwipingId] = useState<string | null>(null);
   const [swipeOffset, setSwipeOffset] = useState<number>(0);
   const [historyCount, setHistoryCount] = useState({ left: 0, right: 0 });
+  const [hasSwipedAny, setHasSwipedAny] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastSubtext, setToastSubtext] = useState<string | null>(null);
 
@@ -35,6 +36,9 @@ export function SwipeDeck({
     assignment: CanvasAssignment;
     hoursLeft: number;
   } | null>(null);
+
+  // State for Swipe Right Focus / Detail modal ("I've Done It!")
+  const [activeDetailAssignment, setActiveDetailAssignment] = useState<CanvasAssignment | null>(null);
 
   const { isPhone, isTablet, isDesktop } = useDevice();
 
@@ -52,6 +56,51 @@ export function SwipeDeck({
       } catch {}
     }
     setDeck(initialAssignments);
+  }, [initialAssignments]);
+
+  // Escalating Scared Deadline Notifications starting 3 days before deadline
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window && initialAssignments.length > 0) {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+      if (Notification.permission === 'granted') {
+        const now = Date.now();
+        const urgent = initialAssignments.filter((a) => {
+          const dueMs = new Date(a.dueDate).getTime();
+          const hoursLeft = (dueMs - now) / (1000 * 60 * 60);
+          return hoursLeft > 0 && hoursLeft <= 72; // Within 3 days
+        });
+
+        if (urgent.length > 0) {
+          const target = urgent[0];
+          const dueMs = new Date(target.dueDate).getTime();
+          const hoursLeft = Math.max(1, Math.round((dueMs - now) / (1000 * 60 * 60)));
+
+          let title = '';
+          let body = '';
+
+          if (hoursLeft <= 12) {
+            title = '🚨 EMERGENCY DEADLINE WARNING!';
+            body = `"${target.title}" is due in ONLY ${hoursLeft} hours! THIS IS NOT A DRILL! 😱`;
+          } else if (hoursLeft <= 24) {
+            title = '😱 24 HOURS LEFT!';
+            body = `"${target.title}" is due tomorrow! We need to finish this NOW!`;
+          } else {
+            title = '😰 Nervous Reminder (3 Days Left)';
+            body = `"${target.title}" is due in ${Math.round(hoursLeft / 24)} days. Should we start?`;
+          }
+
+          const lastNotified = localStorage.getItem(`deadlnr_notified_${target.id}`);
+          if (!lastNotified) {
+            try {
+              new Notification(title, { body, icon: '/favicon.ico' });
+              localStorage.setItem(`deadlnr_notified_${target.id}`, Date.now().toString());
+            } catch {}
+          }
+        }
+      }
+    }
   }, [initialAssignments]);
 
   const currentAi = AI_PROVIDERS[preferredAi] || AI_PROVIDERS.gemini;
@@ -82,6 +131,7 @@ export function SwipeDeck({
   // Deduplicated Log swipe to server & localStorage
   const logSwipe = async (assignment: CanvasAssignment, direction: 'left' | 'right') => {
     markSwipedInSession(assignment.id);
+    setHasSwipedAny(true);
 
     const newEvent = {
       assignment_id: assignment.id,
@@ -95,7 +145,6 @@ export function SwipeDeck({
       try {
         const stored = localStorage.getItem('deadlnr_swipe_history');
         const history = stored ? JSON.parse(stored) : [];
-        // Deduplicate before unshifting so urgent warning items don't double log
         const filtered = history.filter((item: any) => item.assignment_id !== assignment.id);
         filtered.unshift(newEvent);
         localStorage.setItem('deadlnr_swipe_history', JSON.stringify(filtered.slice(0, 50)));
@@ -130,22 +179,49 @@ export function SwipeDeck({
     }, 200);
   }, []);
 
-  // Execute right swipe (iOS Safari popup blocker fix)
+  // Swipe right handler opens Detail Focus Modal
   const executeSwipeRight = useCallback(
     (targetAssignment: CanvasAssignment) => {
-      let aiTab: Window | null = null;
-      try {
-        aiTab = window.open('about:blank', '_blank');
-      } catch {}
-
-      setSwipingId(targetAssignment.id);
-      setSwipeOffset(320);
-
       triggerHaptic([30, 50, 30]);
+      setActiveDetailAssignment(targetAssignment);
+    },
+    []
+  );
 
-      const formattedDate = new Date(targetAssignment.dueDate).toLocaleString();
+  // Handle "I've Done It!" Completion Button Click
+  const handleMarkAsDone = (targetAssignment: CanvasAssignment) => {
+    confetti({
+      particleCount: isPhone ? 80 : 120,
+      spread: 90,
+      origin: { y: 0.6 },
+      colors: ['#00E599', '#FF3B00', '#3B82F6', '#FFB703', '#A855F7'],
+    });
 
-      const promptText = `Help me get started on this assignment. Please first provide an estimated completion time for this task, then give me a step-by-step breakdown to complete it efficiently. Here's everything I know about it:
+    logSwipe(targetAssignment, 'right');
+    setHistoryCount((prev) => ({ ...prev, right: prev.right + 1 }));
+
+    setToastMessage(`🎉 Completed "${targetAssignment.title}"!`);
+    setToastSubtext('Great job knocking out that deadline!');
+
+    setDeck((prev) => prev.filter((a) => a.id !== targetAssignment.id));
+    setActiveDetailAssignment(null);
+
+    setTimeout(() => {
+      setToastMessage(null);
+      setToastSubtext(null);
+    }, 4000);
+  };
+
+  // Handle Launching AI Assistant from Detail Modal
+  const handleLaunchAiFromModal = (targetAssignment: CanvasAssignment) => {
+    let aiTab: Window | null = null;
+    try {
+      aiTab = window.open('about:blank', '_blank');
+    } catch {}
+
+    const formattedDate = new Date(targetAssignment.dueDate).toLocaleString();
+
+    const promptText = `Help me get started on this assignment. Please first provide an estimated completion time for this task, then give me a step-by-step breakdown to complete it efficiently. Here's everything I know about it:
 
 Title: ${targetAssignment.title}
 Course: ${targetAssignment.course}
@@ -156,40 +232,35 @@ ${targetAssignment.description || 'Sparse description in calendar feed. Check Ca
 
 Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
 
-      if (navigator?.clipboard?.writeText) {
-        navigator.clipboard.writeText(promptText).catch(() => {});
-      }
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(promptText).catch(() => {});
+    }
 
-      setToastMessage(`Copied context for ${currentAi.name}.`);
-      setToastSubtext(`Launching ${currentAi.name} in a new tab...`);
+    setToastMessage(`Copied context for ${currentAi.name}.`);
+    setToastSubtext(`Launching ${currentAi.name} in a new tab...`);
 
-      if (aiTab) {
-        aiTab.location.href = currentAi.url;
-      } else {
-        window.open(currentAi.url, '_blank');
-      }
+    if (aiTab) {
+      aiTab.location.href = currentAi.url;
+    } else {
+      window.open(currentAi.url, '_blank');
+    }
 
-      logSwipe(targetAssignment, 'right');
-      setHistoryCount((prev) => ({ ...prev, right: prev.right + 1 }));
+    logSwipe(targetAssignment, 'right');
+    setHistoryCount((prev) => ({ ...prev, right: prev.right + 1 }));
 
-      setTimeout(() => {
-        setToastMessage(null);
-        setToastSubtext(null);
-      }, 4000);
+    setDeck((prev) => prev.filter((a) => a.id !== targetAssignment.id));
+    setActiveDetailAssignment(null);
 
-      setTimeout(() => {
-        setDeck((prev) => prev.slice(1));
-        setSwipingId(null);
-        setSwipeOffset(0);
-      }, 200);
-    },
-    [currentAi]
-  );
+    setTimeout(() => {
+      setToastMessage(null);
+      setToastSubtext(null);
+    }, 4000);
+  };
 
   // Main swipe handler (checks if < 12h due date requires confirmation)
   const handleSwipe = useCallback(
     (direction: 'left' | 'right') => {
-      if (deck.length === 0 || swipingId || pendingSkip) return;
+      if (deck.length === 0 || swipingId || pendingSkip || activeDetailAssignment) return;
 
       const targetAssignment = deck[0];
 
@@ -210,7 +281,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
         executeSwipeRight(targetAssignment);
       }
     },
-    [deck, swipingId, pendingSkip, executeSwipeLeft, executeSwipeRight]
+    [deck, swipingId, pendingSkip, activeDetailAssignment, executeSwipeLeft, executeSwipeRight]
   );
 
   // Explicit reload deck handler
@@ -220,12 +291,13 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
     }
     if (onRefreshFeed) onRefreshFeed();
     setDeck(initialAssignments);
+    setHasSwipedAny(false);
   };
 
   // Keyboard controls
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (deck.length === 0 || swipingId || pendingSkip) return;
+      if (deck.length === 0 || swipingId || pendingSkip || activeDetailAssignment) return;
       if (e.key === 'ArrowLeft') {
         handleSwipe('left');
       } else if (e.key === 'ArrowRight') {
@@ -235,11 +307,11 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [deck, swipingId, pendingSkip, handleSwipe]);
+  }, [deck, swipingId, pendingSkip, activeDetailAssignment, handleSwipe]);
 
-  // Confetti on clear
+  // Confetti on clear ONLY if user actually swiped cards in this session!
   useEffect(() => {
-    if (deck.length === 0 && initialAssignments.length > 0) {
+    if (hasSwipedAny && deck.length === 0 && initialAssignments.length > 0) {
       confetti({
         particleCount: isPhone ? 60 : 100,
         spread: 75,
@@ -247,7 +319,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
         colors: ['#FF3B00', '#00E599', '#FF0055', '#FFB703'],
       });
     }
-  }, [deck.length, initialAssignments.length, isPhone]);
+  }, [deck.length, initialAssignments.length, hasSwipedAny, isPhone]);
 
   const totalSwiped = historyCount.left + historyCount.right;
 
@@ -263,6 +335,86 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
     <div className="relative flex flex-col items-center justify-center w-full max-w-2xl mx-auto">
       {/* Toast Notification */}
       <Toast message={toastMessage} subtext={toastSubtext} onClose={() => setToastMessage(null)} />
+
+      {/* Swipe Right Focus / Detail Modal ("I've Done It!") */}
+      <AnimatePresence>
+        {activeDetailAssignment && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#080A0F]/85 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.92, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.92, y: 20 }}
+              className="w-full max-w-lg rounded-3xl border border-slate-800 bg-[#111622] p-6 sm:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#00E599] bg-[#00E599]/10 px-3 py-1 rounded-full border border-[#00E599]/20">
+                  {activeDetailAssignment.course}
+                </span>
+
+                <button
+                  onClick={() => setActiveDetailAssignment(null)}
+                  className="rounded-xl bg-slate-900 border border-slate-800 p-1.5 text-slate-400 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div>
+                <h3 className="text-2xl font-black text-white font-display leading-tight mb-2">
+                  {activeDetailAssignment.title}
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Due: {new Date(activeDetailAssignment.dueDate).toLocaleString()}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4 text-xs sm:text-sm text-slate-300 space-y-2 leading-relaxed">
+                <p className="font-bold text-slate-200">Assignment Details:</p>
+                <p className="whitespace-pre-line text-slate-400">
+                  {activeDetailAssignment.description || 'No detailed instructions provided in calendar feed. Open Canvas for full details.'}
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <button
+                  onClick={() => handleMarkAsDone(activeDetailAssignment)}
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#00E599] hover:bg-[#00E599]/90 py-3.5 text-xs sm:text-sm font-bold text-slate-950 shadow-lg active:scale-95 transition-all font-display"
+                >
+                  <CheckCircle className="h-4 w-4 stroke-[2.5]" />
+                  <span>I&apos;ve Done It! 🎉</span>
+                </button>
+
+                <button
+                  onClick={() => handleLaunchAiFromModal(activeDetailAssignment)}
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#FF3B00] hover:bg-[#FF3B00]/90 py-3.5 text-xs sm:text-sm font-bold text-white shadow-lg active:scale-95 transition-all font-display"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  <span>Ask {currentAi.name}</span>
+                </button>
+              </div>
+
+              {activeDetailAssignment.canvasUrl && (
+                <div className="text-center pt-1">
+                  <a
+                    href={activeDetailAssignment.canvasUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 underline underline-offset-2"
+                  >
+                    <span>Open in Canvas LMS</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Urgent Swipe-Left Confirmation Modal (< 12 hours) */}
       <AnimatePresence>
@@ -411,7 +563,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
                 href="/history"
                 className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-[#111622] hover:bg-slate-800 px-6 py-2.5 font-bold text-slate-300 border border-slate-800 transition-colors text-xs"
               >
-                <History className="h-3.5 w-3.5 text-[#FF3B00]" />
+                <HistoryIcon className="h-3.5 w-3.5 text-[#FF3B00]" />
                 <span>View Activity History</span>
               </Link>
             </div>
@@ -443,7 +595,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
           <button
             onClick={() => handleSwipe('right')}
             disabled={!!swipingId}
-            title={`Start with ${currentAi.name} (Right Arrow)`}
+            title={`View Details & Complete (Right Arrow)`}
             className="group flex h-16 w-16 sm:h-18 sm:w-18 items-center justify-center rounded-2xl border border-[#00E599]/40 bg-[#111622] text-[#00E599] shadow-2xl transition-all hover:bg-[#00E599] hover:text-[#080A0F] hover:border-[#00E599] active:scale-90 disabled:opacity-50"
           >
             <Check className="h-8 w-8 sm:h-9 sm:w-9 stroke-[3]" />
@@ -460,10 +612,10 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
               <kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-200 border border-slate-700 font-mono text-[10px]">←</kbd>
               <span>to skip or</span>
               <kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-200 border border-slate-700 font-mono text-[10px]">→</kbd>
-              <span>to launch {currentAi.name}</span>
+              <span>for Details & Completion</span>
             </>
           ) : (
-            <span>Swipe left to skip • Swipe right to launch {currentAi.name}</span>
+            <span>Swipe left to skip • Swipe right for Details & Completion</span>
           )}
         </div>
       )}
