@@ -13,7 +13,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
-  // Step 1: Request 6-Digit Email OTP Code via Server API
+  // Step 1: Request Email OTP Code via Server API
   const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !email.includes('@')) {
@@ -44,7 +44,7 @@ export default function LoginPage() {
       });
     } catch (err: any) {
       setMessage({
-        text: err.message || 'Failed to send verification code. Check Supabase credentials in Settings.',
+        text: err.message || 'Failed to send verification code.',
         type: 'error',
       });
     } finally {
@@ -52,11 +52,12 @@ export default function LoginPage() {
     }
   };
 
-  // Step 2: Verify 6-Digit OTP Code via Server API
+  // Step 2: Verify OTP Code (Supports 6 to 8 digit codes)
   const handleVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!otpCode || otpCode.trim().length < 6) {
-      setMessage({ text: 'Please enter the full 6-digit verification code.', type: 'error' });
+    const cleanToken = otpCode.trim();
+    if (!cleanToken || cleanToken.length < 6) {
+      setMessage({ text: 'Please enter the full verification code sent to your email.', type: 'error' });
       return;
     }
 
@@ -67,7 +68,7 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/otp/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), token: otpCode.trim() }),
+        body: JSON.stringify({ email: email.trim(), token: cleanToken }),
       });
 
       const data = await res.json();
@@ -113,8 +114,8 @@ export default function LoginPage() {
             </h1>
             <p className="text-xs text-slate-400">
               {step === 'email'
-                ? 'Enter your email to receive a 6-digit Resend security code'
-                : `Enter the 6-digit verification code sent to ${email}`}
+                ? 'Enter your email to receive a Resend security code'
+                : `Enter the verification code sent to ${email}`}
             </p>
           </div>
 
@@ -161,22 +162,22 @@ export default function LoginPage() {
                 className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-[#FF3B00] hover:bg-[#FF3B00]/90 py-3.5 font-bold text-white shadow-xl shadow-[#FF3B00]/20 active:scale-95 transition-all text-sm font-display disabled:opacity-50"
               >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                <span>Send 6-Digit Code</span>
+                <span>Send Verification Code</span>
               </button>
             </form>
           ) : (
-            /* Step 2 Form: 6-Digit Code Input */
+            /* Step 2 Form: Verification Code Input (Supports up to 8 digits) */
             <form onSubmit={handleVerifyCode} className="space-y-4">
               <div>
                 <label className="block text-xs font-mono font-bold uppercase tracking-wider text-slate-300 mb-1.5">
-                  6-Digit Verification Code
+                  Verification Code
                 </label>
                 <div className="relative">
                   <input
                     type="text"
                     required
-                    maxLength={6}
-                    placeholder="123456"
+                    maxLength={8}
+                    placeholder="52721567"
                     value={otpCode}
                     onChange={(e) => setOtpCode(e.target.value)}
                     className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 pl-10 text-center text-lg font-mono font-bold tracking-widest text-white placeholder-slate-600 focus:border-[#00E599] focus:outline-none focus:ring-1 focus:ring-[#00E599]"
