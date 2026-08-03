@@ -9,63 +9,8 @@ export interface CanvasAssignment {
 
 export type PreferredAI = 'gemini' | 'chatgpt' | 'claude';
 
-export type ThemeId = 'default' | 'cyberpunk' | 'emerald' | 'sunset' | 'dracula';
-
-export interface ThemeOption {
-  id: ThemeId;
-  name: string;
-  primary: string;
-  bg: string;
-  card: string;
-  accent: string;
-}
-
-export const APP_THEMES: Record<ThemeId, ThemeOption> = {
-  default: {
-    id: 'default',
-    name: 'Deadlnr Dark',
-    primary: '#FF3B00',
-    bg: '#080A0F',
-    card: '#111622',
-    accent: '#00E599',
-  },
-  cyberpunk: {
-    id: 'cyberpunk',
-    name: 'Neon Cyberpunk',
-    primary: '#FF007A',
-    bg: '#0B0813',
-    card: '#161024',
-    accent: '#00F0FF',
-  },
-  emerald: {
-    id: 'emerald',
-    name: 'Midnight Emerald',
-    primary: '#10B981',
-    bg: '#050B14',
-    card: '#0F172A',
-    accent: '#84CC16',
-  },
-  sunset: {
-    id: 'sunset',
-    name: 'Sunset Amber',
-    primary: '#F59E0B',
-    bg: '#0F0C08',
-    card: '#1C1712',
-    accent: '#FF6B6B',
-  },
-  dracula: {
-    id: 'dracula',
-    name: 'Dracula Obsidian',
-    primary: '#A855F7',
-    bg: '#0D0B14',
-    card: '#181524',
-    accent: '#EC4899',
-  },
-};
-
 export interface UserSettings {
   preferred_ai: PreferredAI;
-  theme?: ThemeId;
   has_feed_url: boolean;
 }
 

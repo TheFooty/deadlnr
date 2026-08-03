@@ -2,9 +2,8 @@ import type { Metadata } from 'next';
 import { Space_Grotesk, Plus_Jakarta_Sans, Space_Mono, Geist } from 'next/font/google';
 import './globals.css';
 import { cn } from "@/lib/utils";
-import { ThemeProvider } from '@/components/ThemeProvider';
 
-const geist = Geist({ subsets: ['latin'], variable: '--font-sans' });
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
@@ -44,9 +43,7 @@ export default function RootLayout({
       className={cn("dark", spaceGrotesk.variable, plusJakarta.variable, spaceMono.variable, "font-sans", geist.variable)}
     >
       <body className="font-sans bg-[#080A0F] text-[#F3F4F6] min-h-screen antialiased bg-radial-gradient bg-grid-pattern selection:bg-[#FF3B00]/30 selection:text-[#FF3B00]">
-        <ThemeProvider>
-          {children}
-        </ThemeProvider>
+        {children}
       </body>
     </html>
   );

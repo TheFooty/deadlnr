@@ -2,9 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
-import { PreferredAI, AI_PROVIDERS, ThemeId, APP_THEMES } from '@/lib/types';
-import { useTheme } from '@/components/ThemeProvider';
-import { Lock, Check, HelpCircle, ArrowLeft, Loader2, Palette } from 'lucide-react';
+import { PreferredAI, AI_PROVIDERS } from '@/lib/types';
+import { Lock, Check, HelpCircle, ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SettingsPage() {
@@ -14,8 +13,6 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
-
-  const { theme, setTheme } = useTheme();
 
   useEffect(() => {
     // Read local fallback first
@@ -89,7 +86,7 @@ export default function SettingsPage() {
         type: 'success',
       });
       if (feedUrl.trim()) setHasFeedUrl(true);
-      setFeedUrl('');
+      setFeedUrl(''); // Clear input for privacy
     } catch (err: any) {
       setMessage({ text: err.message || 'An error occurred', type: 'error' });
     } finally {
@@ -111,7 +108,7 @@ export default function SettingsPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-black text-white font-display">App Settings</h1>
-            <p className="text-xs text-slate-400">Configure your themes, Canvas feed & preferred AI chat assistant</p>
+            <p className="text-xs text-slate-400">Configure your Canvas feed & preferred AI chat assistant</p>
           </div>
         </div>
 
@@ -129,60 +126,13 @@ export default function SettingsPage() {
         )}
 
         <form onSubmit={handleSave} className="space-y-8">
-          {/* Section 1: Custom Themes Selector */}
-          <div className="rounded-2xl border border-slate-800 bg-[#111622] p-6 card-tactile">
-            <div className="flex items-center gap-2 mb-1">
-              <Palette className="h-5 w-5 text-[#FF3B00]" />
-              <h2 className="text-lg font-bold text-white font-display">Custom App Theme</h2>
-            </div>
-            <p className="text-sm text-slate-400 mb-5">
-              Personalize Deadlnr&apos;s interface color palette across all your devices.
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {(Object.keys(APP_THEMES) as ThemeId[]).map((themeKey) => {
-                const themeOption = APP_THEMES[themeKey];
-                const isSelected = theme === themeKey;
-
-                return (
-                  <button
-                    key={themeKey}
-                    type="button"
-                    onClick={() => setTheme(themeKey)}
-                    className={`relative flex items-center justify-between rounded-xl border p-4 transition-all text-left ${
-                      isSelected
-                        ? 'border-[#FF3B00] bg-[#FF3B00]/10 shadow-lg'
-                        : 'border-slate-800 bg-slate-950/60 hover:border-slate-700'
-                    }`}
-                  >
-                    <div>
-                      <p className="font-bold text-white text-sm mb-1.5">{themeOption.name}</p>
-                      <div className="flex items-center gap-1.5">
-                        <span className="h-3.5 w-3.5 rounded-full border border-white/20" style={{ backgroundColor: themeOption.primary }} title="Primary Accent" />
-                        <span className="h-3.5 w-3.5 rounded-full border border-white/20" style={{ backgroundColor: themeOption.bg }} title="Background" />
-                        <span className="h-3.5 w-3.5 rounded-full border border-white/20" style={{ backgroundColor: themeOption.card }} title="Card Surface" />
-                        <span className="h-3.5 w-3.5 rounded-full border border-white/20" style={{ backgroundColor: themeOption.accent }} title="Success / Completion" />
-                      </div>
-                    </div>
-
-                    {isSelected && (
-                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#FF3B00] text-white">
-                        <Check className="h-3 w-3 stroke-[3]" />
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Section 2: Preferred AI Picker */}
+          {/* Section 1: Preferred AI Picker */}
           <div className="rounded-2xl border border-slate-800 bg-[#111622] p-6 card-tactile">
             <h2 className="text-lg font-bold text-white mb-1 font-display">
               Default AI Assistant
             </h2>
             <p className="text-sm text-slate-400 mb-5">
-              Swiping right opens your assignment focus detail view and chosen AI chat.
+              Swiping right copies assignment context and opens your chosen AI chat.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -222,7 +172,7 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Section 3: Canvas iCal Feed URL */}
+          {/* Section 2: Canvas iCal Feed URL */}
           <div className="rounded-2xl border border-slate-800 bg-[#111622] p-6 card-tactile">
             <div className="flex items-center justify-between mb-1">
               <h2 className="text-lg font-bold text-white font-display">
