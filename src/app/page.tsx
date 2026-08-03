@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { SwipeDeck } from '@/components/SwipeDeck';
 import { AddDeadlineModal } from '@/components/AddDeadlineModal';
-import { CanvasAssignment, PreferredAI, AI_PROVIDERS } from '@/lib/types';
+import { CanvasAssignment, PreferredAI, ThemeId, AI_PROVIDERS } from '@/lib/types';
 import { useDevice } from '@/lib/use-device';
 import { RefreshCw, Plus } from 'lucide-react';
 import Link from 'next/link';
@@ -31,7 +31,9 @@ export default function HomePage() {
         }
       }
 
-      // Fetch settings
+      let serverCustomList: CanvasAssignment[] = [];
+
+      // Fetch user account settings across devices from Supabase
       const settingsRes = await fetch('/api/settings');
       if (settingsRes.ok) {
         const settingsData = await settingsRes.json();
@@ -40,6 +42,9 @@ export default function HomePage() {
           if (typeof window !== 'undefined') {
             localStorage.setItem('deadlnr_preferred_ai', settingsData.preferred_ai);
           }
+        }
+        if (Array.isArray(settingsData.custom_assignments)) {
+          serverCustomList = settingsData.custom_assignments;
         }
       }
 
@@ -54,13 +59,23 @@ export default function HomePage() {
       let fetchedList: CanvasAssignment[] = feedData.assignments || [];
       let isMockData = !!feedData.isMock;
 
-      // Read custom user assignments from localStorage
-      let customList: CanvasAssignment[] = [];
+      // Read local custom user assignments from localStorage
+      let localCustomList: CanvasAssignment[] = [];
       if (typeof window !== 'undefined') {
         try {
           const stored = localStorage.getItem('deadlnr_custom_assignments');
-          if (stored) customList = JSON.parse(stored);
+          if (stored) localCustomList = JSON.parse(stored);
         } catch {}
+      }
+
+      // Merge server & local custom assignments (deduplicated by ID)
+      const mergedMap = new Map<string, CanvasAssignment>();
+      [...serverCustomList, ...localCustomList].forEach((item) => mergedMap.set(item.id, item));
+      let customList = Array.from(mergedMap.values());
+
+      // Save synced custom assignments list back to localStorage
+      if (typeof window !== 'undefined' && customList.length > 0) {
+        localStorage.setItem('deadlnr_custom_assignments', JSON.stringify(customList));
       }
 
       // 24-hour attachment cleanup routine for completed assignments

@@ -4,10 +4,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { CanvasAssignment, PreferredAI, AI_PROVIDERS } from '@/lib/types';
+import { previewFile } from '@/lib/file-utils';
 import { AssignmentCard } from './AssignmentCard';
 import { Toast } from './Toast';
 import { useDevice } from '@/lib/use-device';
-import { X, Check, RotateCcw, CheckCircle2, History as HistoryIcon, Layers, AlertTriangle, Clock, ExternalLink, Sparkles, CheckCircle, Paperclip } from 'lucide-react';
+import { X, Check, RotateCcw, CheckCircle2, History as HistoryIcon, Layers, AlertTriangle, Clock, ExternalLink, Sparkles, CheckCircle, Paperclip, Eye, Download } from 'lucide-react';
 import Link from 'next/link';
 
 interface SwipeDeckProps {
@@ -383,13 +384,24 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
                           <Paperclip className="h-3.5 w-3.5 text-[#00E599] shrink-0" />
                           <span className="font-semibold text-slate-200 truncate">{att.name}</span>
                         </div>
-                        <a
-                          href={att.dataUrl}
-                          download={att.name}
-                          className="text-[#00E599] hover:underline shrink-0 font-bold"
-                        >
-                          Download
-                        </a>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => previewFile(att)}
+                            className="text-[#00E599] hover:underline font-bold inline-flex items-center gap-1 text-xs"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            <span>Preview</span>
+                          </button>
+                          <a
+                            href={att.dataUrl}
+                            download={att.name}
+                            className="text-slate-400 hover:text-white hover:underline text-xs flex items-center gap-1"
+                          >
+                            <Download className="h-3 w-3" />
+                            <span>Download</span>
+                          </a>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -444,7 +456,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
             <motion.div
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
+              exit={{ scale: 0.9, y: 0 }}
               className="w-full max-w-md rounded-3xl border border-[#FF0055]/40 bg-[#111622] p-6 shadow-2xl card-tactile"
             >
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FF0055]/15 text-[#FF0055] border border-[#FF0055]/30 mb-4">

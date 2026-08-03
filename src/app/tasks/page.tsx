@@ -4,29 +4,31 @@ import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { AddDeadlineModal } from '@/components/AddDeadlineModal';
 import { CanvasAssignment, TaskAttachment } from '@/lib/types';
-import { motion, AnimatePresence } from 'framer-motion';
+import { previewFile } from '@/lib/file-utils';
 import {
-  Calendar,
+  ListTodo,
   Plus,
+  Search,
   Edit2,
   Trash2,
   Paperclip,
-  FileText,
-  UploadCloud,
+  Calendar,
   X,
-  Search,
+  UploadCloud,
+  FileText,
   ExternalLink,
-  BookOpen,
-  Check,
-  ArrowLeft,
+  Eye,
+  Download,
 } from 'lucide-react';
-import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function TasksPage() {
   const [assignments, setAssignments] = useState<CanvasAssignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCourse, setSelectedCourse] = useState<string>('ALL');
+
+  // Add Task Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   // Edit Task State
@@ -96,36 +98,30 @@ export default function TasksPage() {
     loadTasks();
   }, []);
 
-  // Save all custom tasks changes back to local storage and Supabase account
-  const syncCustomTasks = (updatedCustomList: CanvasAssignment[]) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('deadlnr_custom_assignments', JSON.stringify(updatedCustomList));
-    }
-    fetch('/api/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ custom_assignments: updatedCustomList }),
-    }).catch(() => {});
-  };
-
-  // Open Edit Modal
+  // Open Edit Modal for a Task
   const handleOpenEdit = (task: CanvasAssignment) => {
     setEditingTask(task);
     setEditTitle(task.title);
     setEditCourse(task.course);
-
-    // Format ISO string to datetime-local format YYYY-MM-DDTHH:mm
-    const dateObj = new Date(task.dueDate);
-    const tzOffset = dateObj.getTimezoneOffset() * 60000;
-    const localISOTime = new Date(dateObj.getTime() - tzOffset).toISOString().slice(0, 16);
-
-    setEditDueDate(localISOTime);
+    setEditDueDate(new Date(task.dueDate).toISOString().slice(0, 16));
     setEditDescription(task.description || '');
     setEditUrl(task.canvasUrl || '');
     setEditAttachments(task.attachments || []);
   };
 
-  // Handle File Uploads & convert to Base64
+  // Helper to sync custom tasks locally and to server account
+  const syncCustomTasks = (customList: CanvasAssignment[]) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('deadlnr_custom_assignments', JSON.stringify(customList));
+    }
+    fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ custom_assignments: customList }),
+    }).catch(() => {});
+  };
+
+  // File Upload Handler
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -134,28 +130,27 @@ export default function TasksPage() {
       const reader = new FileReader();
       reader.onload = (event) => {
         const dataUrl = event.target?.result as string;
-        const newAttachment: TaskAttachment = {
+        const newAtt: TaskAttachment = {
           id: `att_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
           name: file.name,
           size: file.size,
           type: file.type,
           dataUrl,
         };
-        setEditAttachments((prev) => [...prev, newAttachment]);
+        setEditAttachments((prev) => [...prev, newAtt]);
       };
       reader.readAsDataURL(file);
     });
   };
 
-  // Remove File Attachment
   const handleRemoveAttachment = (id: string) => {
     setEditAttachments((prev) => prev.filter((a) => a.id !== id));
   };
 
-  // Save Task Edits
-  const handleSaveTaskEdit = (e: React.FormEvent) => {
+  // Save Edit Task
+  const handleSaveEdit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingTask || !editTitle.trim() || !editDueDate) return;
+    if (!editingTask) return;
 
     const updatedTask: CanvasAssignment = {
       ...editingTask,
@@ -165,13 +160,14 @@ export default function TasksPage() {
       description: editDescription.trim(),
       canvasUrl: editUrl.trim(),
       attachments: editAttachments,
+      isCustom: true,
     };
 
     setAssignments((prev) =>
-      prev.map((t) => (t.id === editingTask.id ? updatedTask : t))
+      prev.map((item) => (item.id === editingTask.id ? updatedTask : item))
     );
 
-    // Update in custom assignments list
+    // Save to localStorage & sync to server
     if (typeof window !== 'undefined') {
       try {
         const stored = localStorage.getItem('deadlnr_custom_assignments');
@@ -250,7 +246,7 @@ export default function TasksPage() {
                     <h3 className="text-xl font-bold text-white font-display">
                       Edit Task Details
                     </h3>
-                    <p className="text-xs text-slate-400">Update parameters, notes, or attach files</p>
+                    <p className="text-xs text-slate-400">Update deadline, course info, or attach files</p>
                   </div>
                 </div>
 
@@ -262,10 +258,10 @@ export default function TasksPage() {
                 </button>
               </div>
 
-              <form onSubmit={handleSaveTaskEdit} className="space-y-4">
+              <form onSubmit={handleSaveEdit} className="space-y-4">
                 <div>
                   <label className="block text-xs font-mono font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                    Task Title *
+                    Assignment Title
                   </label>
                   <input
                     type="text"
@@ -291,7 +287,7 @@ export default function TasksPage() {
 
                   <div>
                     <label className="block text-xs font-mono font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                      Due Date & Time *
+                      Due Date & Time
                     </label>
                     <input
                       type="datetime-local"
@@ -305,17 +301,17 @@ export default function TasksPage() {
 
                 <div>
                   <label className="block text-xs font-mono font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                    Description & Notes
+                    Description / Instructions
                   </label>
                   <textarea
-                    rows={3}
+                    rows={4}
                     value={editDescription}
                     onChange={(e) => setEditDescription(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-800 bg-[#080A0F] p-4 text-xs sm:text-sm text-white focus:border-[#FF3B00] focus:outline-none resize-none"
+                    className="w-full rounded-2xl border border-slate-800 bg-[#080A0F] p-4 text-xs text-white focus:border-[#FF3B00] focus:outline-none resize-none leading-relaxed"
                   />
                 </div>
 
-                {/* File Attachments Section */}
+                {/* File Attachments Uploader */}
                 <div>
                   <label className="block text-xs font-mono font-bold text-slate-300 uppercase tracking-wider mb-1.5">
                     File Attachments (PDFs, Rubrics, Images)
@@ -336,13 +332,22 @@ export default function TasksPage() {
                           </span>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => previewFile(att)}
+                            className="text-xs text-[#00E599] hover:underline flex items-center gap-1 font-bold"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            <span>Preview</span>
+                          </button>
                           <a
                             href={att.dataUrl}
                             download={att.name}
-                            className="text-xs text-[#00E599] hover:underline"
+                            className="text-xs text-slate-400 hover:text-white hover:underline flex items-center gap-1"
                           >
-                            Download
+                            <Download className="h-3 w-3" />
+                            <span>Download</span>
                           </a>
                           <button
                             type="button"
@@ -358,7 +363,7 @@ export default function TasksPage() {
                     {/* File Upload Trigger */}
                     <label className="flex items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-700 hover:border-[#FF3B00] bg-[#080A0F]/60 p-4 cursor-pointer text-xs text-slate-400 hover:text-white transition-all">
                       <UploadCloud className="h-4 w-4 text-[#FF3B00]" />
-                      <span>Click or drag files to upload attachments</span>
+                      <span>Click or drop files to upload attachments</span>
                       <input
                         type="file"
                         multiple
@@ -369,21 +374,33 @@ export default function TasksPage() {
                   </div>
                 </div>
 
+                <div>
+                  <label className="block text-xs font-mono font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Resource Link (Optional)
+                  </label>
+                  <input
+                    type="url"
+                    value={editUrl}
+                    onChange={(e) => setEditUrl(e.target.value)}
+                    className="w-full rounded-2xl border border-slate-800 bg-[#080A0F] px-4 py-3 text-xs text-white focus:border-[#FF3B00] focus:outline-none font-mono"
+                  />
+                </div>
+
                 <div className="pt-3 flex items-center justify-between">
                   <button
                     type="button"
                     onClick={() => handleDeleteTask(editingTask.id)}
-                    className="inline-flex items-center gap-1.5 text-xs text-rose-400 hover:text-rose-300 font-bold"
+                    className="inline-flex items-center gap-1.5 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 px-4 py-3 text-xs font-bold transition-all border border-rose-500/20"
                   >
                     <Trash2 className="h-4 w-4" />
                     <span>Delete Task</span>
                   </button>
 
-                  <div className="flex gap-3">
+                  <div className="flex items-center gap-3">
                     <button
                       type="button"
                       onClick={() => setEditingTask(null)}
-                      className="rounded-2xl bg-[#080A0F] hover:bg-slate-900 px-5 py-3 text-xs font-bold text-slate-400 border border-slate-800"
+                      className="rounded-2xl bg-[#080A0F] px-5 py-3 text-xs font-bold text-slate-400 hover:text-white border border-slate-800"
                     >
                       Cancel
                     </button>
@@ -402,35 +419,40 @@ export default function TasksPage() {
       </AnimatePresence>
 
       <main className="flex-1 max-w-4xl mx-auto w-full p-4 sm:p-6 md:p-8">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+        {/* Top Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-black text-white font-display">
-              Tasks & Calendar Editor
-            </h1>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FF3B00]/15 text-[#FF3B00] border border-[#FF3B00]/30">
+                <ListTodo className="h-5 w-5" />
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-black text-white font-display">
+                Tasks & File Attachments
+              </h1>
+            </div>
             <p className="text-xs text-slate-400 mt-1">
-              Edit task parameters, upload attachments & manage your deadlines
+              Edit task parameters, attach assignment files, or upload study rubrics.
             </p>
           </div>
 
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-2xl bg-[#FF3B00] hover:bg-[#FF3B00]/90 px-5 py-3 text-xs font-bold text-white shadow-lg shadow-[#FF3B00]/20 active:scale-95 transition-all font-display"
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#FF3B00] hover:bg-[#FF3B00]/90 px-5 py-2.5 text-xs sm:text-sm font-bold text-white shadow-lg shadow-[#FF3B00]/20 active:scale-95 transition-all font-display self-start sm:self-auto"
           >
             <Plus className="h-4 w-4 stroke-[2.5]" />
             <span>Add New Task</span>
           </button>
         </div>
 
-        {/* Filters & Search */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
-          <div className="relative flex-1">
+        {/* Filter Controls */}
+        <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
+          <div className="relative flex-1 w-full">
             <input
               type="text"
-              placeholder="Search tasks by title, course, or notes..."
+              placeholder="Search by title, course, or description..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-2xl border border-slate-800 bg-[#111622] px-4 py-3 pl-10 text-xs sm:text-sm text-white placeholder-slate-500 focus:border-[#FF3B00] focus:outline-none"
+              className="w-full rounded-2xl border border-slate-800 bg-[#111622] px-4 py-3 pl-10 text-xs text-white placeholder-slate-500 focus:border-[#FF3B00] focus:outline-none transition-all"
             />
             <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-500" />
           </div>
@@ -488,41 +510,65 @@ export default function TasksPage() {
                       {task.attachments && task.attachments.length > 0 && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
                           <Paperclip className="h-3 w-3" />
-                          <span>{task.attachments.length} attached</span>
+                          <span>{task.attachments.length} files</span>
+                        </span>
+                      )}
+                      {task.isCustom && (
+                        <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                          Custom
                         </span>
                       )}
                     </div>
 
-                    <h3 className="text-base font-extrabold text-white font-display truncate">
-                      {task.title}
-                    </h3>
+                    <h3 className="text-base font-bold text-white truncate">{task.title}</h3>
 
-                    <p className="text-xs text-slate-400 line-clamp-2">
-                      {task.description || 'No detailed instructions provided.'}
-                    </p>
+                    <div className="flex items-center gap-3 text-xs text-slate-400">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3.5 w-3.5 text-slate-500" />
+                        <span>{new Date(task.dueDate).toLocaleString()}</span>
+                      </span>
+                      <span>·</span>
+                      <span className={hoursLeft < 24 ? 'text-rose-400 font-bold' : 'text-slate-400'}>
+                        {hoursLeft > 0 ? `${hoursLeft}h left` : 'Past due'}
+                      </span>
+                    </div>
 
-                    <p className="text-[11px] font-mono text-slate-500">
-                      Due: {new Date(task.dueDate).toLocaleString()} ({hoursLeft > 0 ? `${hoursLeft}h remaining` : 'Passed'})
-                    </p>
+                    {/* Preview attached files inline if present */}
+                    {task.attachments && task.attachments.length > 0 && (
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {task.attachments.map((att) => (
+                          <button
+                            key={att.id}
+                            onClick={() => previewFile(att)}
+                            className="inline-flex items-center gap-1 rounded-xl bg-slate-900 border border-slate-800 px-2.5 py-1 text-[11px] font-semibold text-[#00E599] hover:border-[#00E599]/40 transition-all"
+                          >
+                            <Eye className="h-3 w-3" />
+                            <span className="truncate max-w-[120px]">{att.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
-                  <div className="flex items-center gap-2 self-end sm:self-center">
+                  <div className="flex items-center gap-2 shrink-0">
                     <button
                       onClick={() => handleOpenEdit(task)}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 px-4 py-2.5 text-xs font-bold text-slate-200 transition-all"
+                      className="inline-flex items-center gap-1.5 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700 px-4 py-2.5 text-xs font-bold text-slate-200 transition-all"
                     >
-                      <Edit2 className="h-3.5 w-3.5 text-[#FF3B00]" />
+                      <Edit2 className="h-3.5 w-3.5 text-[#00E599]" />
                       <span>Edit & Attach</span>
                     </button>
 
-                    {task.isCustom && (
-                      <button
-                        onClick={() => handleDeleteTask(task.id)}
-                        className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition-all"
-                        title="Delete Task"
+                    {task.canvasUrl && (
+                      <a
+                        href={task.canvasUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                        title="Open Canvas Link"
                       >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
                     )}
                   </div>
                 </div>
