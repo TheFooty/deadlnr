@@ -7,8 +7,6 @@ import {
   getSmartDescFormat,
   getSmartCourseFormat,
 } from '@/lib/smart-format';
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { ExternalLink } from 'lucide-react';
 
 interface AssignmentCardProps {
@@ -16,25 +14,25 @@ interface AssignmentCardProps {
   isFrontCard?: boolean;
 }
 
-// Course color dot & badge based on course code
+// Course color dot based on course code
 function getCourseTheme(courseName: string) {
   const name = courseName.toUpperCase();
   if (name.includes('CS') || name.includes('COMP') || name.includes('CODE')) {
-    return { dot: 'bg-[#00E599]', text: 'text-[#00E599]', badgeBg: 'bg-[#00E599]/10 border-[#00E599]/20' };
+    return { dot: 'bg-[#00E599]', text: 'text-[#00E599]' };
   }
   if (name.includes('MATH') || name.includes('STAT') || name.includes('CALC')) {
-    return { dot: 'bg-indigo-400', text: 'text-indigo-400', badgeBg: 'bg-indigo-500/10 border-indigo-500/20' };
+    return { dot: 'bg-indigo-400', text: 'text-indigo-400' };
   }
   if (name.includes('PHYS') || name.includes('CHEM') || name.includes('BIO')) {
-    return { dot: 'bg-cyan-400', text: 'text-cyan-400', badgeBg: 'bg-cyan-500/10 border-cyan-500/20' };
+    return { dot: 'bg-cyan-400', text: 'text-cyan-400' };
   }
   if (name.includes('ENGL') || name.includes('RHET') || name.includes('LIT')) {
-    return { dot: 'bg-purple-400', text: 'text-purple-400', badgeBg: 'bg-purple-500/10 border-purple-500/20' };
+    return { dot: 'bg-purple-400', text: 'text-purple-400' };
   }
   if (name.includes('HIST') || name.includes('GOV') || name.includes('POLI')) {
-    return { dot: 'bg-amber-400', text: 'text-amber-400', badgeBg: 'bg-amber-500/10 border-amber-500/20' };
+    return { dot: 'bg-amber-400', text: 'text-amber-400' };
   }
-  return { dot: 'bg-[#FF3B00]', text: 'text-[#FF3B00]', badgeBg: 'bg-[#FF3B00]/10 border-[#FF3B00]/20' };
+  return { dot: 'bg-[#FF3B00]', text: 'text-[#FF3B00]' };
 }
 
 export function AssignmentCard({ assignment, isFrontCard = false }: AssignmentCardProps) {
@@ -65,44 +63,45 @@ export function AssignmentCard({ assignment, isFrontCard = false }: AssignmentCa
   const isSparseDescription = !assignment.description || assignment.description.trim().length < 20;
 
   return (
-    <Card
-      className={`relative flex h-full w-full flex-col justify-between overflow-hidden rounded-[2.25rem] border-slate-800 bg-[#111622] p-6 sm:p-8 lg:p-9 select-none transition-all shadow-2xl ${
-        isFrontCard ? 'border-slate-700/90 shadow-[#FF3B00]/5' : ''
+    <div
+      className={`relative flex h-full w-full flex-col justify-between overflow-hidden rounded-[2.25rem] border border-slate-800 bg-[#111622] p-6 sm:p-8 lg:p-9 select-none card-tactile ${
+        isFrontCard ? 'card-tactile-active border-slate-700/80' : ''
       }`}
     >
+      {/* Top Section */}
       <div className="flex-1 flex flex-col justify-between">
-        <CardHeader className="p-0 space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <Badge
-              variant="outline"
-              className={`inline-flex items-center gap-2 px-3 py-1 text-xs sm:text-sm font-semibold rounded-full border ${theme.badgeBg} ${theme.text}`}
-            >
+        {/* Header: Course tag + due status */}
+        <div>
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <span className={`inline-flex items-center gap-2 text-xs sm:text-sm font-semibold ${theme.text}`}>
               <span className={`h-2 w-2 rounded-full ${theme.dot}`} />
               {codeTag}
-            </Badge>
+            </span>
 
-            <Badge
-              variant={isUrgent ? 'destructive' : 'secondary'}
-              className={`text-xs sm:text-sm font-semibold px-3 py-1 rounded-full ${
-                isUrgent ? 'bg-[#FF0055]/15 text-[#FF0055] border border-[#FF0055]/30' : 'bg-slate-900 text-slate-400 border border-slate-800'
+            <span
+              className={`text-xs sm:text-sm font-semibold ${
+                isUrgent ? 'text-[#FF0055]' : 'text-slate-400'
               }`}
             >
               {statusText}
-            </Badge>
+            </span>
           </div>
 
+          {/* Optional Full Course Name Eyebrow */}
           {fullName && (
-            <p className="text-[11px] sm:text-xs text-slate-400 font-medium line-clamp-1">
+            <p className="text-[11px] sm:text-xs text-slate-500 mb-2 line-clamp-1">
               {fullName}
             </p>
           )}
 
-          <h2 className={`text-white font-bold tracking-tight leading-tight font-display ${smartTitle.fontSizeClass}`}>
+          {/* Smart Dynamic Title */}
+          <h2 className={`text-white leading-tight font-display mb-4 ${smartTitle.fontSizeClass}`}>
             {assignment.title}
           </h2>
-        </CardHeader>
+        </div>
 
-        <CardContent className="p-0 my-auto py-4">
+        {/* Smart Dynamic Description */}
+        <div className="my-auto py-2">
           {isSparseDescription ? (
             <p className="text-sm text-slate-500 italic">
               Limited details in calendar feed — open in Canvas for full instructions.
@@ -116,17 +115,18 @@ export function AssignmentCard({ assignment, isFrontCard = false }: AssignmentCa
               ))}
             </div>
           )}
-        </CardContent>
+        </div>
       </div>
 
-      <CardFooter className="p-0 pt-4 border-t border-slate-800/80 flex items-center text-xs sm:text-sm">
+      {/* Footer: Action Link */}
+      <div className="pt-4 border-t border-slate-800/80 flex items-center text-xs sm:text-sm mt-4">
         {assignment.canvasUrl ? (
           <a
             href={assignment.canvasUrl}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="inline-flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors font-medium"
+            className="inline-flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors"
           >
             <span>Open in Canvas</span>
             <ExternalLink className="h-3.5 w-3.5" />
@@ -134,7 +134,7 @@ export function AssignmentCard({ assignment, isFrontCard = false }: AssignmentCa
         ) : (
           <span className="text-slate-600 text-xs">No link available</span>
         )}
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   );
 }
