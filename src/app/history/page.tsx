@@ -2,13 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
+import { Toast } from '@/components/Toast';
 import { SwipeEvent } from '@/lib/types';
-import { History, ArrowRight, X, ArrowLeft, RefreshCw } from 'lucide-react';
+import { History, ArrowRight, X, ArrowLeft, RefreshCw, Undo2, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function HistoryPage() {
   const [history, setHistory] = useState<SwipeEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastSubtext, setToastSubtext] = useState<string | null>(null);
 
   const fetchHistory = async () => {
     setLoading(true);
@@ -33,7 +36,7 @@ export default function HistoryPage() {
         // Combine local storage and API history
         const combined = [...apiEvents, ...localEvents];
         const unique = Array.from(
-          new Map(combined.map((item) => [`${item.assignment_id}_${item.swiped_at}`, item])).values()
+          new Map(combined.map((item) => [item.assignment_id, item])).values()
         );
 
         setHistory(unique);
@@ -56,9 +59,53 @@ export default function HistoryPage() {
     fetchHistory();
   }, []);
 
+  // Restore Task back to Deck
+  const handleRestoreTask = async (assignmentId: string, assignmentTitle: string) => {
+    // 1. Update UI state
+    setHistory((prev) => prev.filter((item) => item.assignment_id !== assignmentId));
+
+    // 2. Remove from localStorage swipe history & sessionStorage swiped set
+    if (typeof window !== 'undefined') {
+      try {
+        const storedHistory = localStorage.getItem('deadlnr_swipe_history');
+        if (storedHistory) {
+          const list: SwipeEvent[] = JSON.parse(storedHistory);
+          const filtered = list.filter((item) => item.assignment_id !== assignmentId);
+          localStorage.setItem('deadlnr_swipe_history', JSON.stringify(filtered));
+        }
+
+        const swipedRaw = sessionStorage.getItem('deadlnr_swiped_ids');
+        if (swipedRaw) {
+          const swipedArr: string[] = JSON.parse(swipedRaw);
+          const filteredArr = swipedArr.filter((id) => id !== assignmentId);
+          sessionStorage.setItem('deadlnr_swiped_ids', JSON.stringify(filteredArr));
+        }
+      } catch {}
+    }
+
+    // 3. Call DELETE API route
+    try {
+      await fetch(`/api/swipe?assignment_id=${encodeURIComponent(assignmentId)}`, {
+        method: 'DELETE',
+      });
+    } catch (err) {
+      console.error('Failed to restore task on server:', err);
+    }
+
+    setToastMessage(`Restored "${assignmentTitle}"!`);
+    setToastSubtext('This assignment is back on your active swipe deck.');
+
+    setTimeout(() => {
+      setToastMessage(null);
+      setToastSubtext(null);
+    }, 4000);
+  };
+
   return (
     <div className="min-h-screen bg-[#080A0F] text-slate-100 flex flex-col font-sans">
       <Navbar />
+
+      <Toast message={toastMessage} subtext={toastSubtext} onClose={() => setToastMessage(null)} />
 
       <main className="flex-1 max-w-3xl mx-auto w-full p-4 sm:p-6 md:p-8">
         <div className="flex items-center justify-between gap-3 mb-6">
@@ -70,8 +117,8 @@ export default function HistoryPage() {
               <ArrowLeft className="h-5 w-5" />
             </Link>
             <div>
-              <h1 className="text-2xl font-black text-white">Swipe History</h1>
-              <p className="text-xs text-slate-400">Review your past skipped and AI-started assignments</p>
+              <h1 className="text-2xl font-black text-white font-display">Swipe History</h1>
+              <p className="text-xs text-slate-400">Review completed tasks or restore mistakenly swiped items</p>
             </div>
           </div>
 
@@ -97,22 +144,22 @@ export default function HistoryPage() {
             </p>
             <Link
               href="/"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-[#FF3B00] hover:bg-[#FF3B00]/90 px-4 py-2 text-xs font-bold text-white shadow-lg"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#FF3B00] hover:bg-[#FF3B00]/90 px-4 py-2 text-xs font-bold text-white shadow-lg font-display"
             >
               <span>Go to Swipe Deck</span>
             </Link>
           </div>
         ) : (
           <div className="space-y-3">
-            {history.map((item, idx) => {
+            {history.map((item) => {
               const isRight = item.direction === 'right';
 
               return (
                 <div
-                  key={idx}
-                  className="flex items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-[#111622]/60 p-4 backdrop-blur-md"
+                  key={item.assignment_id}
+                  className="flex items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-[#111622]/80 p-4 backdrop-blur-md hover:border-slate-700 transition-all card-tactile"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
                     <div
                       className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${
                         isRight
@@ -120,18 +167,23 @@ export default function HistoryPage() {
                           : 'border-[#FF0055]/30 bg-[#FF0055]/10 text-[#FF0055]'
                       }`}
                     >
-                      {isRight ? <ArrowRight className="h-5 w-5" /> : <X className="h-5 w-5" />}
+                      {isRight ? <CheckCircle2 className="h-5 w-5" /> : <X className="h-5 w-5" />}
                     </div>
 
-                    <div>
-                      <h4 className="text-sm font-bold text-white line-clamp-1">{item.assignment_title}</h4>
+                    <div className="min-w-0">
+                      <h4 className="text-sm font-bold text-white truncate">{item.assignment_title}</h4>
                       <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400">
-                        <span className="text-slate-300 font-semibold">{item.course}</span>
+                        <span className="text-[#00E599] font-mono font-bold uppercase text-[10px]">
+                          {item.course}
+                        </span>
                         {item.swiped_at && (
                           <>
                             <span>·</span>
-                            <span>
-                              {new Date(item.swiped_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            <span className="text-[11px]">
+                              {new Date(item.swiped_at).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
                             </span>
                           </>
                         )}
@@ -139,13 +191,24 @@ export default function HistoryPage() {
                     </div>
                   </div>
 
-                  <span
-                    className={`shrink-0 text-xs font-semibold px-3 py-1 rounded-full ${
-                      isRight ? 'text-[#00E599]' : 'text-[#FF0055]'
-                    }`}
-                  >
-                    {isRight ? 'Started' : 'Skipped'}
-                  </span>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span
+                      className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                        isRight ? 'text-[#00E599] bg-[#00E599]/10' : 'text-[#FF0055] bg-[#FF0055]/10'
+                      }`}
+                    >
+                      {isRight ? 'Completed 🎉' : 'Skipped'}
+                    </span>
+
+                    <button
+                      onClick={() => handleRestoreTask(item.assignment_id, item.assignment_title)}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 px-3 py-1.5 text-xs font-bold text-slate-200 hover:text-white transition-all active:scale-95"
+                      title="Restore task to active deck"
+                    >
+                      <Undo2 className="h-3.5 w-3.5 text-[#FF3B00]" />
+                      <span className="hidden sm:inline">Restore to Deck</span>
+                    </button>
+                  </div>
                 </div>
               );
             })}

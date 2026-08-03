@@ -63,6 +63,38 @@ export default function HomePage() {
         } catch {}
       }
 
+      // 24-hour attachment cleanup routine for completed assignments
+      const now = Date.now();
+      const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+      let historyList: any[] = [];
+      if (typeof window !== 'undefined') {
+        try {
+          const storedHist = localStorage.getItem('deadlnr_swipe_history');
+          if (storedHist) historyList = JSON.parse(storedHist);
+        } catch {}
+      }
+
+      const completedTimeMap = new Map<string, number>();
+      historyList.forEach((h: any) => {
+        if (h.assignment_id && h.swiped_at) {
+          completedTimeMap.set(h.assignment_id, new Date(h.swiped_at).getTime());
+        }
+      });
+
+      let attachmentsPurged = false;
+      customList = customList.map((item) => {
+        const swipedAtMs = completedTimeMap.get(item.id);
+        if (swipedAtMs && now - swipedAtMs > TWENTY_FOUR_HOURS && item.attachments && item.attachments.length > 0) {
+          attachmentsPurged = true;
+          return { ...item, attachments: [] };
+        }
+        return item;
+      });
+
+      if (attachmentsPurged && typeof window !== 'undefined') {
+        localStorage.setItem('deadlnr_custom_assignments', JSON.stringify(customList));
+      }
+
       // If user has custom assignments, remove mock sample assignments completely!
       if (customList.length > 0 && isMockData) {
         fetchedList = [];

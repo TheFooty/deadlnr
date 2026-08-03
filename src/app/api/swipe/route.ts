@@ -130,3 +130,50 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+// DELETE Handler to Restore / Undo task from history back to active deck
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const assignmentId = searchParams.get('assignment_id');
+
+    if (!assignmentId) {
+      return NextResponse.json({ error: 'Missing assignment_id parameter' }, { status: 400 });
+    }
+
+    // 1. Remove from cookie history
+    let history: SwipeEvent[] = [];
+    const cookieHeader = request.cookies.get('deadlnr_swipe_history')?.value;
+    if (cookieHeader) {
+      try {
+        history = JSON.parse(cookieHeader);
+      } catch {}
+    }
+
+    const filtered = history.filter((item) => item.assignment_id !== assignmentId);
+    const response = NextResponse.json({ success: true, restored_id: assignmentId });
+
+    response.cookies.set('deadlnr_swipe_history', JSON.stringify(filtered), {
+      path: '/',
+      maxAge: 31536000,
+    });
+
+    // 2. Remove from Supabase if logged in
+    try {
+      const supabase = await createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (session?.user?.id) {
+        await supabase
+          .from('swipe_history')
+          .delete()
+          .eq('user_id', session.user.id)
+          .eq('assignment_id', assignmentId);
+      }
+    } catch {}
+
+    return response;
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
