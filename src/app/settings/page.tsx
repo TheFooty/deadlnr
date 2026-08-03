@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { PreferredAI, AI_PROVIDERS, ThemeId, APP_THEMES } from '@/lib/types';
 import { useTheme } from '@/components/ThemeProvider';
-import { Lock, Check, HelpCircle, ArrowLeft, Loader2, Palette, Sparkles, Layers } from 'lucide-react';
+import { Lock, Check, HelpCircle, ArrowLeft, Loader2, Palette, Sparkles, Layers, UserCheck, LogIn } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SettingsPage() {
@@ -12,6 +12,8 @@ export default function SettingsPage() {
   const [preferredAi, setPreferredAi] = useState<PreferredAI>('gemini');
   const [showDemoData, setShowDemoData] = useState<boolean>(false); // OFF by default
   const [hasFeedUrl, setHasFeedUrl] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [isGuest, setIsGuest] = useState<boolean>(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -31,6 +33,16 @@ export default function SettingsPage() {
 
     async function loadSettings() {
       try {
+        // Check Auth User
+        const meRes = await fetch('/api/auth/me');
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          if (meData.isLoggedIn && meData.email) {
+            setUserEmail(meData.email);
+            setIsGuest(false);
+          }
+        }
+
         const res = await fetch('/api/settings');
         if (res.ok) {
           const data = await res.json();
@@ -158,6 +170,49 @@ export default function SettingsPage() {
             <h1 className="text-2xl font-black text-white font-display">App Settings</h1>
             <p className="text-xs text-slate-400">Configure your themes, Canvas feed & preferred AI chat assistant</p>
           </div>
+        </div>
+
+        {/* Account Sync Status Banner */}
+        <div className="mb-6 rounded-2xl border border-slate-800 bg-[#111622] p-5 card-tactile">
+          {isGuest ? (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                  <LogIn className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Guest Mode (Not Logged In)</h3>
+                  <p className="text-xs text-slate-400">
+                    Log in with your email on this phone to sync your custom tasks, attached files & themes across devices.
+                  </p>
+                </div>
+              </div>
+
+              <Link
+                href="/login"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#FF3B00] hover:bg-[#FF3B00]/90 px-4 py-2 text-xs font-bold text-white shadow-lg shrink-0 font-display"
+              >
+                <span>Log In with Email</span>
+              </Link>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#00E599]/15 text-[#00E599] border border-[#00E599]/30">
+                <UserCheck className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <span>Account Connected & Synced</span>
+                  <span className="text-[10px] font-mono text-[#00E599] bg-[#00E599]/10 px-2 py-0.5 rounded border border-[#00E599]/20">
+                    {userEmail}
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Your custom tasks, file attachments, and themes sync automatically to this account across all devices.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {message && (
