@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CanvasAssignment, TaskAttachment } from '@/lib/types';
 import { previewFile } from '@/lib/file-utils';
-import { Plus, X, BookOpen, Link2, UploadCloud, FileText, Eye } from 'lucide-react';
+import { Plus, X, BookOpen, Link2, UploadCloud, FileText, Eye, Sparkles, Zap } from 'lucide-react';
 
 interface AddDeadlineModalProps {
   isOpen: boolean;
@@ -19,6 +19,63 @@ export function AddDeadlineModal({ isOpen, onClose, onAdded }: AddDeadlineModalP
   const [description, setDescription] = useState('');
   const [url, setUrl] = useState('');
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
+  const [showSmartPaste, setShowSmartPaste] = useState(false);
+  const [smartText, setSmartText] = useState('');
+
+  // Apply Platform Quick Presets (e.g. Kognity)
+  const applyPreset = (platform: 'KOGNITY' | 'CANVAS' | 'CUSTOM') => {
+    if (platform === 'KOGNITY') {
+      setCourse('KOGNITY');
+      if (!url) setUrl('https://app.kognity.com');
+    } else if (platform === 'CANVAS') {
+      setCourse('CANVAS');
+    }
+  };
+
+  // Smart parse text copied from Kognity or assignment lists
+  const handleSmartParse = () => {
+    if (!smartText.trim()) return;
+
+    const lines = smartText.trim().split('\n').map((l) => l.trim()).filter(Boolean);
+
+    // Extract title (first line)
+    if (lines.length > 0 && !title) {
+      setTitle(lines[0]);
+    }
+
+    // Try extracting course/subject
+    const kognitySubj = smartText.match(/(Biology|Chemistry|Physics|Math|History|English|Economics|Psychology|TOK|CAS|Spanish)/i);
+    if (kognitySubj && !course) {
+      setCourse(`KOGNITY - ${kognitySubj[0].toUpperCase()}`);
+    } else if (!course && smartText.toLowerCase().includes('kognity')) {
+      setCourse('KOGNITY');
+    }
+
+    // Try extracting due date
+    const dateMatch = smartText.match(/(due|by|before)?\s*([A-Za-z]{3,9}\s+\d{1,2}(?:,\s*\d{4})?(?:\s+at\s+\d{1,2}:\d{2}\s*(?:am|pm)?)?)/i);
+    if (dateMatch && dateMatch[2]) {
+      const parsed = new Date(dateMatch[2]);
+      if (!isNaN(parsed.getTime())) {
+        setDueDate(parsed.toISOString().slice(0, 16));
+      }
+    }
+
+    // Try extracting URL
+    const urlMatch = smartText.match(/https?:\/\/[^\s]+/i);
+    if (urlMatch && !url) {
+      setUrl(urlMatch[0]);
+    } else if (!url && smartText.toLowerCase().includes('kognity')) {
+      setUrl('https://app.kognity.com');
+    }
+
+    // Set description as full text
+    if (!description) {
+      setDescription(smartText);
+    }
+
+    setShowSmartPaste(false);
+    setSmartText('');
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -103,7 +160,7 @@ export function AddDeadlineModal({ isOpen, onClose, onAdded }: AddDeadlineModalP
             animate={{ scale: 1, y: 0 }}
             exit={{ scale: 0.94, y: 16 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="w-full max-w-lg rounded-[2rem] border border-white/[0.08] bg-[#111622] p-6 sm:p-8 shadow-2xl shadow-black/80 space-y-6 max-h-[90vh] overflow-y-auto"
+            className="w-full max-w-lg rounded-[2rem] border border-white/[0.08] bg-[#111622] p-6 sm:p-8 shadow-2xl shadow-black/80 space-y-5 max-h-[90vh] overflow-y-auto"
           >
             {/* Header */}
             <div className="flex items-center justify-between">
@@ -115,7 +172,7 @@ export function AddDeadlineModal({ isOpen, onClose, onAdded }: AddDeadlineModalP
                   <h3 className="text-xl font-bold text-white font-display tracking-tight">
                     Add New Deadline
                   </h3>
-                  <p className="text-xs text-slate-400">Manually insert a task into your swipe deck</p>
+                  <p className="text-xs text-slate-400">Add custom tasks, Kognity assignments, or Canvas items</p>
                 </div>
               </div>
 
@@ -127,6 +184,77 @@ export function AddDeadlineModal({ isOpen, onClose, onAdded }: AddDeadlineModalP
               </button>
             </div>
 
+            {/* Quick Presets & Smart Paste Toggle */}
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                  Quick Presets:
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setShowSmartPaste(!showSmartPaste)}
+                  className="inline-flex items-center gap-1 text-xs font-bold text-[#00E599] hover:underline"
+                >
+                  <Zap className="h-3.5 w-3.5 text-[#00E599]" />
+                  <span>{showSmartPaste ? 'Close Quick Paste' : 'Paste from Kognity'}</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => applyPreset('KOGNITY')}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#00A4B8]/40 bg-[#00A4B8]/15 px-3 py-1.5 text-xs font-bold text-[#00A4B8] hover:bg-[#00A4B8]/25 transition-all"
+                >
+                  <span className="h-2 w-2 rounded-full bg-[#00A4B8]" />
+                  <span>Kognity Task</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => applyPreset('CANVAS')}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#FF3B00]/40 bg-[#FF3B00]/15 px-3 py-1.5 text-xs font-bold text-[#FF3B00] hover:bg-[#FF3B00]/25 transition-all"
+                >
+                  <span className="h-2 w-2 rounded-full bg-[#FF3B00]" />
+                  <span>Canvas Task</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Smart Paste Box */}
+            <AnimatePresence>
+              {showSmartPaste && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden rounded-2xl border border-[#00E599]/30 bg-[#00E599]/5 p-4 space-y-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#00E599] flex items-center gap-1.5">
+                      <Sparkles className="h-4 w-4" />
+                      <span>Paste Kognity Assignment Details</span>
+                    </span>
+                  </div>
+                  <textarea
+                    rows={3}
+                    placeholder="Paste text copied from Kognity assignment (e.g., 'Biology SL Practice - Due Oct 24')..."
+                    value={smartText}
+                    onChange={(e) => setSmartText(e.target.value)}
+                    className="w-full rounded-xl border border-slate-800 bg-[#080A0F] p-3 text-xs text-white placeholder-slate-600 focus:border-[#00E599] focus:outline-none resize-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSmartParse}
+                    className="w-full rounded-xl bg-[#00E599] hover:bg-[#00E599]/90 py-2 text-xs font-bold text-slate-950 shadow-md font-display"
+                  >
+                    Auto-Fill Assignment Fields
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -136,7 +264,7 @@ export function AddDeadlineModal({ isOpen, onClose, onAdded }: AddDeadlineModalP
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Physics Lab Report 4"
+                  placeholder="e.g. Kognity Physics Section 3.2 Quiz"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className="w-full rounded-2xl border border-slate-800 bg-[#080A0F] px-4 py-3 text-sm text-white placeholder-slate-600 focus:border-[#FF3B00] focus:outline-none focus:ring-1 focus:ring-[#FF3B00] transition-all"
@@ -146,12 +274,12 @@ export function AddDeadlineModal({ isOpen, onClose, onAdded }: AddDeadlineModalP
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-mono font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                    Course Code
+                    Course Code / Platform
                   </label>
                   <div className="relative">
                     <input
                       type="text"
-                      placeholder="PHYS 201"
+                      placeholder="KOGNITY"
                       value={course}
                       onChange={(e) => setCourse(e.target.value)}
                       className="w-full rounded-2xl border border-slate-800 bg-[#080A0F] px-4 py-3 pl-10 text-sm text-white placeholder-slate-600 focus:border-[#FF3B00] focus:outline-none transition-all uppercase"
@@ -248,7 +376,7 @@ export function AddDeadlineModal({ isOpen, onClose, onAdded }: AddDeadlineModalP
                 <div className="relative">
                   <input
                     type="url"
-                    placeholder="https://..."
+                    placeholder="https://app.kognity.com..."
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
                     className="w-full rounded-2xl border border-slate-800 bg-[#080A0F] px-4 py-3 pl-10 text-xs text-white placeholder-slate-600 focus:border-[#FF3B00] focus:outline-none transition-all font-mono"

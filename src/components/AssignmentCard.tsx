@@ -14,9 +14,12 @@ interface AssignmentCardProps {
   isFrontCard?: boolean;
 }
 
-// Course color dot based on course code
+// Course color theme based on course code / platform
 function getCourseTheme(courseName: string) {
   const name = courseName.toUpperCase();
+  if (name.includes('KOGNITY') || name.includes('KOG')) {
+    return { dot: 'bg-[#00A4B8]', text: 'text-[#00A4B8]' };
+  }
   if (name.includes('CS') || name.includes('COMP') || name.includes('CODE')) {
     return { dot: 'bg-[#00E599]', text: 'text-[#00E599]' };
   }
@@ -119,7 +122,7 @@ export function AssignmentCard({ assignment, isFrontCard = false }: AssignmentCa
 
           {isSparseDescription ? (
             <p className="text-sm text-slate-500 italic">
-              Limited details in calendar feed — open in Canvas for full instructions.
+              Limited details in calendar feed — open link below for full instructions.
             </p>
           ) : (
             <div className={`space-y-3 text-slate-300 ${smartDesc.fontSizeClass} ${smartDesc.lineHeightClass}`}>
@@ -143,7 +146,7 @@ export function AssignmentCard({ assignment, isFrontCard = false }: AssignmentCa
             onClick={(e) => e.stopPropagation()}
             className="inline-flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors"
           >
-            <span>Open in Canvas</span>
+            <span>{assignment.canvasUrl.includes('kognity') ? 'Open in Kognity' : 'Open Link'}</span>
             <ExternalLink className="h-3.5 w-3.5" />
           </a>
         ) : (
