@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { CanvasAssignment, PreferredAI, AI_PROVIDERS } from '@/lib/types';
@@ -54,6 +54,9 @@ export function SwipeDeck({
   const [showOverview, setShowOverview] = useState<boolean>(false);
   const [overviewMode, setOverviewMode] = useState<'fan' | 'grid'>('fan');
 
+  // Ref for PC card hand horizontal scrolling
+  const cardHandRef = useRef<HTMLDivElement>(null);
+
   // State for < 12 hours urgent swipe-left confirmation
   const [pendingSkip, setPendingSkip] = useState<{
     assignment: CanvasAssignment;
@@ -64,6 +67,26 @@ export function SwipeDeck({
   const [activeDetailAssignment, setActiveDetailAssignment] = useState<CanvasAssignment | null>(null);
 
   const { isPhone, isTablet, isDesktop } = useDevice();
+
+  // Scroll PC Card Hand Left / Right
+  const scrollHandLeft = () => {
+    if (cardHandRef.current) {
+      cardHandRef.current.scrollBy({ left: -340, behavior: 'smooth' });
+    }
+  };
+
+  const scrollHandRight = () => {
+    if (cardHandRef.current) {
+      cardHandRef.current.scrollBy({ left: 340, behavior: 'smooth' });
+    }
+  };
+
+  // Handle Mouse Wheel horizontal panning on PC
+  const handleHandWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (cardHandRef.current) {
+      cardHandRef.current.scrollLeft += e.deltaY;
+    }
+  };
 
   // Load deck & filter out swiped IDs (persisted across refreshes)
   useEffect(() => {
@@ -314,10 +337,19 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
     setHasSwipedAny(false);
   };
 
-  // Keyboard controls
+  // Keyboard controls for deck swiping AND overview PC scrolling
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (deck.length === 0 || swipingId || pendingSkip || activeDetailAssignment || showOverview) return;
+      if (showOverview) {
+        if (e.key === 'ArrowLeft') {
+          scrollHandLeft();
+        } else if (e.key === 'ArrowRight') {
+          scrollHandRight();
+        }
+        return;
+      }
+
+      if (deck.length === 0 || swipingId || pendingSkip || activeDetailAssignment) return;
       if (e.key === 'ArrowLeft') {
         handleSwipe('left');
       } else if (e.key === 'ArrowRight') {
@@ -416,26 +448,48 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
             </div>
 
             {/* Overview Content Body */}
-            <div className="flex-1 w-full max-w-5xl flex flex-col items-center justify-center py-2">
+            <div className="flex-1 w-full max-w-5xl flex flex-col items-center justify-center py-2 relative">
               {deck.length === 0 ? (
                 <div className="text-center py-12">
                   <p className="text-slate-400 text-sm">No cards remaining in your hand!</p>
                 </div>
               ) : overviewMode === 'fan' ? (
-                /* IMPROVED ACCESSIBLE CARD HAND FAN-OUT VIEW */
+                /* ACCESSIBLE CARD HAND FAN-OUT VIEW WITH PC DESKTOP ARROWS & MOUSE WHEEL */
                 <div className="relative w-full flex flex-col items-center justify-center min-h-[380px] sm:min-h-[460px] py-4">
                   <p className="text-xs font-mono text-slate-400 mb-3 flex items-center gap-2">
                     <ChevronLeft className="h-4 w-4 text-[#FF3B00]" />
-                    <span>Swipe horizontally to view all cards • Tap any card to select</span>
+                    <span>Use PC Scroll Arrows, Mouse Wheel or Arrow Keys • Tap any card to select</span>
                     <ChevronRight className="h-4 w-4 text-[#FF3B00]" />
                   </p>
 
-                  <div className="w-full overflow-x-auto py-6 px-4 flex items-center justify-start sm:justify-center gap-4 sm:gap-6 snap-x snap-mandatory no-scrollbar">
+                  {/* Desktop Floating Left Scroll Arrow */}
+                  <button
+                    onClick={scrollHandLeft}
+                    title="Scroll Left (Left Arrow Key)"
+                    className="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 z-40 h-12 w-12 items-center justify-center rounded-full bg-[#111622]/90 border border-slate-700 text-white shadow-2xl hover:bg-[#FF3B00] hover:border-[#FF3B00] transition-all active:scale-90"
+                  >
+                    <ChevronLeft className="h-6 w-6" />
+                  </button>
+
+                  {/* Desktop Floating Right Scroll Arrow */}
+                  <button
+                    onClick={scrollHandRight}
+                    title="Scroll Right (Right Arrow Key)"
+                    className="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 z-40 h-12 w-12 items-center justify-center rounded-full bg-[#111622]/90 border border-slate-700 text-white shadow-2xl hover:bg-[#FF3B00] hover:border-[#FF3B00] transition-all active:scale-90"
+                  >
+                    <ChevronRight className="h-6 w-6" />
+                  </button>
+
+                  {/* Horizontally Scrollable Card Hand Container */}
+                  <div
+                    ref={cardHandRef}
+                    onWheel={handleHandWheel}
+                    className="w-full overflow-x-auto py-6 px-8 flex items-center justify-start sm:justify-center gap-4 sm:gap-6 snap-x snap-mandatory no-scrollbar scroll-smooth"
+                  >
                     {deck.map((item, idx) => {
                       const total = deck.length;
                       const mid = (total - 1) / 2;
                       const offset = idx - mid;
-                      // Gentle angle between -6deg and +6deg
                       const rotateDeg = Math.min(Math.max(offset * 3, -8), 8);
                       const theme = getCourseTheme(item.course);
 
