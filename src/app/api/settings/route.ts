@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { encryptText } from '@/lib/crypto';
-import { PreferredAI, ThemeId, CanvasAssignment } from '@/lib/types';
+import { encryptText, decryptText } from '@/lib/crypto';
+import { PreferredAI, ThemeId } from '@/lib/types';
 import { cookies } from 'next/headers';
 
 export async function GET() {
@@ -12,13 +12,24 @@ export async function GET() {
     const cookieAi = cookieStore.get('deadlnr_preferred_ai')?.value as PreferredAI;
     const cookieTheme = cookieStore.get('deadlnr_theme')?.value as ThemeId;
     const cookieDemo = cookieStore.get('deadlnr_show_demo_data')?.value === 'true';
+    const cookieFeedUrlEnc = cookieStore.get('deadlnr_feed_url')?.value;
+
+    let hasFeed = false;
+    let decryptedCookieFeed = '';
+    if (cookieFeedUrlEnc) {
+      try {
+        decryptedCookieFeed = decryptText(cookieFeedUrlEnc);
+        if (decryptedCookieFeed.startsWith('http')) hasFeed = true;
+      } catch {}
+    }
 
     if (!session?.user) {
       return NextResponse.json({
         preferred_ai: cookieAi || 'gemini',
         theme: cookieTheme || 'default',
-        show_demo_data: cookieDemo, // OFF by default (false)
-        has_feed_url: false,
+        show_demo_data: cookieDemo,
+        has_feed_url: hasFeed,
+        feed_url: decryptedCookieFeed || undefined,
         isGuest: true,
       });
     }
@@ -39,12 +50,20 @@ export async function GET() {
     // Check credentials existence safely using maybeSingle()
     const { data: creds, error: credsErr } = await supabase
       .from('canvas_credentials')
-      .select('user_id')
+      .select('encrypted_feed_url')
       .eq('user_id', userId)
       .maybeSingle();
 
     if (credsErr) {
       console.error('Error checking canvas_credentials:', credsErr);
+    }
+
+    let dbFeedUrl = '';
+    if (creds?.encrypted_feed_url) {
+      try {
+        dbFeedUrl = decryptText(creds.encrypted_feed_url);
+        hasFeed = true;
+      } catch {}
     }
 
     const selectedAi = (settings?.preferred_ai as PreferredAI) || cookieAi || 'gemini';
@@ -54,9 +73,10 @@ export async function GET() {
     return NextResponse.json({
       preferred_ai: selectedAi,
       theme: selectedTheme,
-      show_demo_data: showDemoData, // OFF by default
+      show_demo_data: showDemoData,
       custom_assignments: settings?.custom_assignments || [],
-      has_feed_url: !!creds,
+      has_feed_url: hasFeed,
+      feed_url: dbFeedUrl || decryptedCookieFeed || undefined,
       isGuest: false,
     });
   } catch (error: any) {
@@ -108,6 +128,24 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Process feed_url for ALL users (guests + logged-in)
+    let trimmedUrl = '';
+    if (feed_url && typeof feed_url === 'string' && feed_url.trim().length > 0) {
+      trimmedUrl = feed_url.trim();
+      if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
+        return NextResponse.json(
+          { error: 'Please enter a valid HTTP or HTTPS iCal feed URL.' },
+          { status: 400 }
+        );
+      }
+
+      const encryptedUrl = encryptText(trimmedUrl);
+      response.cookies.set('deadlnr_feed_url', encryptedUrl, {
+        path: '/',
+        maxAge: 31536000,
+      });
+    }
+
     if (!session?.user) {
       return response;
     }
@@ -133,13 +171,8 @@ export async function POST(request: NextRequest) {
       console.error('Failed to upsert user_settings:', upsertErr);
     }
 
-    // Save/update encrypted feed URL if provided
-    if (feed_url && typeof feed_url === 'string' && feed_url.trim().length > 0) {
-      const trimmedUrl = feed_url.trim();
-      if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
-        return NextResponse.json({ error: 'Please enter a valid HTTP/HTTPS iCal feed URL.' }, { status: 400 });
-      }
-
+    // Save/update encrypted feed URL in Supabase database for logged-in user
+    if (trimmedUrl) {
       const encryptedFeedUrl = encryptText(trimmedUrl);
 
       const { error: feedErr } = await supabase
@@ -155,12 +188,16 @@ export async function POST(request: NextRequest) {
 
       if (feedErr) {
         console.error('Failed to upsert canvas_credentials:', feedErr);
+        // Do not fail hard if DB credentials table has RLS issue — cookie fallback will work!
       }
     }
 
     return response;
   } catch (error: any) {
     console.error('Error saving settings:', error);
-    return NextResponse.json({ error: error.message || 'Failed to save settings' }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message || 'Failed to save settings' },
+      { status: 500 }
+    );
   }
 }

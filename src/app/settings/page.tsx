@@ -61,7 +61,8 @@ export default function SettingsPage() {
               localStorage.setItem('deadlnr_show_demo_data', String(data.show_demo_data));
             }
           }
-          if (data.has_feed_url) setHasFeedUrl(data.has_feed_url);
+          if (data.has_feed_url) setHasFeedUrl(true);
+          if (data.feed_url) setFeedUrl(data.feed_url);
         }
       } catch (err) {
         console.error('Failed to load settings:', err);
@@ -142,11 +143,12 @@ export default function SettingsPage() {
       }
 
       setMessage({
-        text: `Settings saved successfully! Account preferences synced across your devices.`,
+        text: feedUrl.trim()
+          ? `Settings & Calendar Feed URL saved successfully! Deadlines will now sync to your deck.`
+          : `Settings saved successfully! Account preferences synced across your devices.`,
         type: 'success',
       });
       if (feedUrl.trim()) setHasFeedUrl(true);
-      setFeedUrl('');
     } catch (err: any) {
       setMessage({ text: err.message || 'An error occurred', type: 'error' });
     } finally {
@@ -181,9 +183,9 @@ export default function SettingsPage() {
                   <LogIn className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white">Guest Mode (Not Logged In)</h3>
+                  <h3 className="text-sm font-bold text-white">Guest Mode (Local Storage)</h3>
                   <p className="text-xs text-slate-400">
-                    Log in with your email on this phone to sync your custom tasks, attached files & themes across devices.
+                    Your calendar feed link, themes, and tasks will save locally on this device. Log in to sync across devices.
                   </p>
                 </div>
               </div>
@@ -287,7 +289,7 @@ export default function SettingsPage() {
                   </h2>
                 </div>
                 <p className="text-xs sm:text-sm text-slate-400">
-                  Include sample mock tasks when no real Canvas deadlines exist. <strong className="text-slate-200">(Off by default)</strong>
+                  Include sample mock tasks when no real Canvas/calendar feed deadlines exist. <strong className="text-slate-200">(Off by default)</strong>
                 </p>
               </div>
 
@@ -352,21 +354,22 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Section 4: Canvas iCal Feed URL */}
+          {/* Section 4: Calendar iCal Feed URL */}
           <div className="rounded-2xl border border-slate-800 bg-[#111622] p-6 card-tactile">
             <div className="flex items-center justify-between mb-1">
               <h2 className="text-lg font-bold text-white font-display">
-                Canvas Calendar Feed
+                Canvas / Kognity Calendar Feed URL
               </h2>
               {hasFeedUrl && (
-                <span className="text-xs font-semibold text-[#00E599]">
-                  Saved
+                <span className="text-xs font-semibold text-[#00E599] flex items-center gap-1">
+                  <Check className="h-3.5 w-3.5" />
+                  Saved Feed Link
                 </span>
               )}
             </div>
 
             <p className="text-sm text-slate-400 mb-4">
-              Paste your personal Canvas iCal feed link. No admin key or access token required.
+              Paste your Canvas or school iCal feed link below to automatically import your deadlines.
             </p>
 
             <div className="space-y-4">
@@ -387,16 +390,15 @@ export default function SettingsPage() {
               <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-4 text-xs text-slate-300 space-y-2">
                 <div className="flex items-center gap-2 text-slate-200 font-bold">
                   <HelpCircle className="h-4 w-4 text-[#FF3B00]" />
-                  <span>How to find your Canvas Calendar Feed URL:</span>
+                  <span>How to get your Calendar Feed URL:</span>
                 </div>
                 <ol className="list-decimal list-inside space-y-1.5 text-slate-400 pl-1">
                   <li>Log into your school Canvas LMS account.</li>
                   <li>
-                    Click <strong className="text-slate-200">Calendar</strong> in the main left sidebar navigation.
+                    Click <strong className="text-slate-200">Calendar</strong> in the left sidebar.
                   </li>
                   <li>
-                    Scroll down to the bottom-left of the sidebar and click{' '}
-                    <strong className="text-slate-200">&quot;Calendar Feed&quot;</strong>.
+                    Click <strong className="text-slate-200">&quot;Calendar Feed&quot;</strong> at the bottom right/left of the page.
                   </li>
                   <li>
                     Copy the entire <code className="text-[#FF3B00] bg-slate-900 px-1 rounded">.ics</code> feed URL and paste it above!
@@ -420,7 +422,7 @@ export default function SettingsPage() {
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#FF3B00] hover:bg-[#FF3B00]/90 px-8 py-3.5 text-sm font-bold text-white active:scale-95 transition-all disabled:opacity-50 font-display shadow-lg shadow-[#FF3B00]/20"
             >
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-              <span>Save Settings</span>
+              <span>Save Settings & Feed</span>
             </button>
           </div>
         </form>

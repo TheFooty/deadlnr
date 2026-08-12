@@ -12,9 +12,22 @@ export async function GET(request: NextRequest) {
 
     const cookieStore = await cookies();
     const showDemoData = cookieStore.get('deadlnr_show_demo_data')?.value === 'true';
+    const cookieFeedUrlEnc = cookieStore.get('deadlnr_feed_url')?.value;
 
     if (forceMock) {
       return NextResponse.json({ assignments: MOCK_ASSIGNMENTS, isMock: true });
+    }
+
+    let feedUrl = '';
+
+    // Try reading feed URL from cookie fallback first
+    if (cookieFeedUrlEnc) {
+      try {
+        const decrypted = decryptText(cookieFeedUrlEnc);
+        if (decrypted.startsWith('http')) {
+          feedUrl = decrypted;
+        }
+      } catch {}
     }
 
     const supabase = await createClient();
@@ -28,43 +41,37 @@ export async function GET(request: NextRequest) {
         .from('user_settings')
         .select('show_demo_data')
         .eq('user_id', session.user.id)
-        .single();
+        .maybeSingle();
 
       if (settings?.show_demo_data !== undefined) {
         userWantsDemo = !!settings.show_demo_data;
       }
-    }
 
-    // If user is not logged in
-    if (!session?.user) {
-      if (userWantsDemo) {
-        return NextResponse.json({
-          assignments: MOCK_ASSIGNMENTS,
-          isMock: true,
-          message: 'Using demo dataset.',
-        });
+      // Fetch encrypted feed URL from DB if logged in
+      const { data: creds } = await supabase
+        .from('canvas_credentials')
+        .select('encrypted_feed_url')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+
+      if (creds?.encrypted_feed_url) {
+        try {
+          const dbDecrypted = decryptText(creds.encrypted_feed_url);
+          if (dbDecrypted.startsWith('http')) {
+            feedUrl = dbDecrypted;
+          }
+        } catch {}
       }
-      return NextResponse.json({
-        assignments: [],
-        isMock: false,
-        noFeedUrl: true,
-      });
     }
 
-    // Fetch encrypted feed URL for user
-    const { data: creds, error: credsError } = await supabase
-      .from('canvas_credentials')
-      .select('encrypted_feed_url')
-      .eq('user_id', session.user.id)
-      .single();
-
-    if (credsError || !creds?.encrypted_feed_url) {
+    // If still no feed URL found
+    if (!feedUrl) {
       if (userWantsDemo) {
         return NextResponse.json({
           assignments: MOCK_ASSIGNMENTS,
           isMock: true,
           noFeedUrl: true,
-          message: 'No Canvas feed URL found. Showing demo mode.',
+          message: 'No calendar feed URL found. Showing demo mode.',
         });
       }
       return NextResponse.json({
@@ -74,10 +81,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Decrypt feed URL server-side
-    const feedUrl = decryptText(creds.encrypted_feed_url);
-
-    // Fetch .ics file from Canvas
+    // Fetch .ics file from Canvas / Kognity / Calendar URL
     const response = await fetch(feedUrl, {
       headers: {
         'User-Agent': 'Deadlnr-Canvas-App/1.0',
@@ -90,13 +94,13 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           assignments: MOCK_ASSIGNMENTS,
           isMock: true,
-          error: `Failed to fetch Canvas feed (HTTP ${response.status})`,
+          error: `Failed to fetch calendar feed (HTTP ${response.status})`,
         });
       }
       return NextResponse.json({
         assignments: [],
         isMock: false,
-        error: `Failed to fetch Canvas feed (HTTP ${response.status})`,
+        error: `Failed to fetch calendar feed (HTTP ${response.status})`,
       });
     }
 
@@ -108,7 +112,7 @@ export async function GET(request: NextRequest) {
       isMock: false,
     });
   } catch (error: any) {
-    console.error('Error fetching Canvas feed:', error);
+    console.error('Error fetching calendar feed:', error);
     return NextResponse.json({ assignments: [], isMock: false, error: error.message }, { status: 500 });
   }
 }
