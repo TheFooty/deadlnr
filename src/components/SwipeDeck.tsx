@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { CanvasAssignment, PreferredAI, AI_PROVIDERS } from '@/lib/types';
 import { previewFile } from '@/lib/file-utils';
-import { AssignmentCard } from './AssignmentCard';
+import { AssignmentCard, getCourseTheme } from './AssignmentCard';
 import { Toast } from './Toast';
 import { useDevice } from '@/lib/use-device';
 import {
@@ -24,8 +24,8 @@ import {
   Eye,
   Download,
   LayoutGrid,
-  Grid,
-  Zap,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -363,10 +363,10 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex flex-col items-center justify-between p-4 sm:p-6 bg-[#080A0F]/90 backdrop-blur-2xl overflow-y-auto"
+            className="fixed inset-0 z-50 flex flex-col items-center justify-between p-4 sm:p-6 bg-[#080A0F]/95 backdrop-blur-2xl overflow-y-auto"
           >
             {/* Overview Header */}
-            <div className="w-full max-w-5xl flex items-center justify-between py-2 border-b border-slate-800 mb-6 shrink-0">
+            <div className="w-full max-w-5xl flex items-center justify-between py-3 border-b border-slate-800 mb-4 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FF3B00]/15 text-[#FF3B00] border border-[#FF3B00]/30">
                   <LayoutGrid className="h-5 w-5" />
@@ -376,7 +376,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
                     Deck Hand Overview
                   </h2>
                   <p className="text-xs text-slate-400">
-                    {deck.length} card{deck.length === 1 ? '' : 's'} remaining in your hand • Tap any card to focus
+                    {deck.length} card{deck.length === 1 ? '' : 's'} remaining in hand • Tap any card to focus
                   </p>
                 </div>
               </div>
@@ -416,69 +416,87 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
             </div>
 
             {/* Overview Content Body */}
-            <div className="flex-1 w-full max-w-5xl flex flex-col items-center justify-center py-4">
+            <div className="flex-1 w-full max-w-5xl flex flex-col items-center justify-center py-2">
               {deck.length === 0 ? (
                 <div className="text-center py-12">
                   <p className="text-slate-400 text-sm">No cards remaining in your hand!</p>
                 </div>
               ) : overviewMode === 'fan' ? (
-                /* CARD HAND FAN-OUT VIEW */
-                <div className="relative w-full flex flex-col items-center justify-center min-h-[380px] sm:min-h-[460px] py-8 overflow-x-auto no-scrollbar">
-                  <div className="flex items-center justify-center -space-x-12 sm:-space-x-24 md:-space-x-32 py-10 px-6">
+                /* IMPROVED ACCESSIBLE CARD HAND FAN-OUT VIEW */
+                <div className="relative w-full flex flex-col items-center justify-center min-h-[380px] sm:min-h-[460px] py-4">
+                  <p className="text-xs font-mono text-slate-400 mb-3 flex items-center gap-2">
+                    <ChevronLeft className="h-4 w-4 text-[#FF3B00]" />
+                    <span>Swipe horizontally to view all cards • Tap any card to select</span>
+                    <ChevronRight className="h-4 w-4 text-[#FF3B00]" />
+                  </p>
+
+                  <div className="w-full overflow-x-auto py-6 px-4 flex items-center justify-start sm:justify-center gap-4 sm:gap-6 snap-x snap-mandatory no-scrollbar">
                     {deck.map((item, idx) => {
                       const total = deck.length;
                       const mid = (total - 1) / 2;
                       const offset = idx - mid;
-                      const rotateDeg = Math.min(Math.max(offset * 6, -24), 24);
-                      const translateY = Math.abs(offset) * 8;
+                      // Gentle angle between -6deg and +6deg
+                      const rotateDeg = Math.min(Math.max(offset * 3, -8), 8);
+                      const theme = getCourseTheme(item.course);
 
                       return (
                         <motion.div
                           key={item.id}
                           onClick={() => handleSelectFromOverview(item)}
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
                           style={{
                             rotate: `${rotateDeg}deg`,
-                            y: translateY,
-                            zIndex: 10 + idx,
                           }}
                           whileHover={{
-                            scale: 1.12,
+                            scale: 1.08,
                             rotate: 0,
-                            y: -30,
-                            zIndex: 100,
-                            transition: { duration: 0.18 },
+                            y: -16,
+                            zIndex: 50,
+                            transition: { duration: 0.15 },
                           }}
-                          className="w-56 sm:w-64 md:w-72 h-80 sm:h-96 shrink-0 cursor-pointer rounded-[2rem] border border-slate-700/80 bg-[#111622] p-5 shadow-2xl transition-all card-tactile hover:border-[#FF3B00] group relative"
+                          className={`w-64 sm:w-72 h-80 sm:h-96 shrink-0 snap-center cursor-pointer rounded-[2rem] border bg-[#111622] p-5 sm:p-6 shadow-2xl transition-all card-tactile ${theme.border} group relative flex flex-col justify-between`}
                         >
-                          <div className="flex flex-col justify-between h-full">
-                            <div>
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-[10px] sm:text-xs font-mono font-bold text-[#FF3B00] bg-[#FF3B00]/10 px-2 py-0.5 rounded-full border border-[#FF3B00]/20 truncate">
-                                  {item.course}
-                                </span>
-                                <span className="text-[10px] text-slate-400 font-semibold">
-                                  #{idx + 1}
-                                </span>
-                              </div>
-                              <h4 className="text-white font-bold text-sm sm:text-base line-clamp-3 font-display mb-2 group-hover:text-[#FF3B00] transition-colors">
-                                {item.title}
-                              </h4>
+                          {/* Card Content Header */}
+                          <div>
+                            <div className="flex items-center justify-between mb-3">
+                              <span className={`inline-flex items-center gap-1.5 text-xs font-mono font-bold px-2.5 py-1 rounded-full border ${theme.text} ${theme.bg} ${theme.border}`}>
+                                <span className={`h-2 w-2 rounded-full ${theme.dot}`} />
+                                {item.course}
+                              </span>
+                              <span className="text-xs text-slate-500 font-mono font-bold">
+                                #{idx + 1}
+                              </span>
                             </div>
 
-                            <div className="space-y-2">
-                              {item.attachments && item.attachments.length > 0 && (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-mono text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
-                                  <Paperclip className="h-3 w-3" />
-                                  <span>{item.attachments.length} file(s)</span>
-                                </span>
-                              )}
-                              <p className="text-[11px] text-slate-400 font-mono">
-                                Due: {new Date(item.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                              </p>
-                              <div className="w-full rounded-xl bg-[#FF3B00]/10 border border-[#FF3B00]/30 py-2 text-center text-xs font-bold text-[#FF3B00] group-hover:bg-[#FF3B00] group-hover:text-white transition-all font-display">
-                                Focus Card →
+                            <h4 className="text-white font-extrabold text-base sm:text-lg line-clamp-3 font-display mb-2 group-hover:text-white transition-colors">
+                              {item.title}
+                            </h4>
+
+                            <p className="text-xs text-slate-400 line-clamp-3 leading-relaxed mb-3">
+                              {item.description || 'No detailed instructions provided in calendar feed.'}
+                            </p>
+                          </div>
+
+                          {/* Card Content Footer */}
+                          <div className="space-y-3 pt-3 border-t border-slate-800">
+                            {item.attachments && item.attachments.length > 0 && (
+                              <div className="inline-flex items-center gap-1 text-[11px] font-mono text-cyan-300 bg-cyan-500/10 px-2.5 py-1 rounded-xl border border-cyan-500/20">
+                                <Paperclip className="h-3 w-3 text-cyan-400" />
+                                <span>{item.attachments.length} attached file(s)</span>
                               </div>
-                            </div>
+                            )}
+
+                            <p className="text-xs text-slate-400 font-mono">
+                              Due: <strong className="text-slate-200">{new Date(item.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</strong>
+                            </p>
+
+                            <button
+                              type="button"
+                              className={`w-full rounded-xl py-2.5 text-xs font-bold text-slate-950 font-display transition-all shadow-md ${theme.dot}`}
+                            >
+                              Focus Card →
+                            </button>
                           </div>
                         </motion.div>
                       );
@@ -486,40 +504,44 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
                   </div>
                 </div>
               ) : (
-                /* GRID VIEW */
+                /* GRID VIEW WITH MATCHING COURSE COLOR BADGES */
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 w-full py-4">
-                  {deck.map((item, idx) => (
-                    <motion.div
-                      key={item.id}
-                      onClick={() => handleSelectFromOverview(item)}
-                      whileHover={{ scale: 1.02 }}
-                      className="cursor-pointer rounded-2xl border border-slate-800 bg-[#111622] p-5 shadow-lg hover:border-[#FF3B00] transition-all card-tactile group flex flex-col justify-between"
-                    >
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-mono font-bold text-[#FF3B00] bg-[#FF3B00]/10 px-2.5 py-0.5 rounded-full border border-[#FF3B00]/20">
-                            {item.course}
-                          </span>
-                          <span className="text-xs text-slate-500 font-mono">#{idx + 1}</span>
+                  {deck.map((item, idx) => {
+                    const theme = getCourseTheme(item.course);
+                    return (
+                      <motion.div
+                        key={item.id}
+                        onClick={() => handleSelectFromOverview(item)}
+                        whileHover={{ scale: 1.02 }}
+                        className={`cursor-pointer rounded-2xl border bg-[#111622] p-5 shadow-lg transition-all card-tactile group flex flex-col justify-between ${theme.border}`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className={`inline-flex items-center gap-1.5 text-xs font-mono font-bold px-2.5 py-0.5 rounded-full border ${theme.text} ${theme.bg} ${theme.border}`}>
+                              <span className={`h-2 w-2 rounded-full ${theme.dot}`} />
+                              {item.course}
+                            </span>
+                            <span className="text-xs text-slate-500 font-mono font-bold">#{idx + 1}</span>
+                          </div>
+                          <h4 className="text-white font-bold text-base font-display mb-2 group-hover:text-white transition-colors">
+                            {item.title}
+                          </h4>
+                          <p className="text-xs text-slate-400 line-clamp-2 mb-4">
+                            {item.description || 'No detailed instructions provided.'}
+                          </p>
                         </div>
-                        <h4 className="text-white font-bold text-base font-display mb-2 group-hover:text-[#FF3B00] transition-colors">
-                          {item.title}
-                        </h4>
-                        <p className="text-xs text-slate-400 line-clamp-2 mb-4">
-                          {item.description || 'No detailed instructions provided.'}
-                        </p>
-                      </div>
 
-                      <div className="flex items-center justify-between pt-3 border-t border-slate-800/80">
-                        <span className="text-xs text-slate-400 font-mono">
-                          Due: {new Date(item.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                        </span>
-                        <span className="text-xs font-bold text-[#FF3B00] group-hover:underline">
-                          Focus Card →
-                        </span>
-                      </div>
-                    </motion.div>
-                  ))}
+                        <div className="flex items-center justify-between pt-3 border-t border-slate-800/80">
+                          <span className="text-xs text-slate-400 font-mono">
+                            Due: {new Date(item.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                          </span>
+                          <span className={`text-xs font-bold ${theme.text} group-hover:underline`}>
+                            Focus Card →
+                          </span>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
                 </div>
               )}
             </div>

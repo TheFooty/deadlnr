@@ -15,27 +15,27 @@ interface AssignmentCardProps {
 }
 
 // Course color theme based on course code / platform
-function getCourseTheme(courseName: string) {
-  const name = courseName.toUpperCase();
+export function getCourseTheme(courseName: string) {
+  const name = (courseName || '').toUpperCase();
   if (name.includes('KOGNITY') || name.includes('KOG')) {
-    return { dot: 'bg-[#00A4B8]', text: 'text-[#00A4B8]' };
+    return { dot: 'bg-[#00A4B8]', text: 'text-[#00A4B8]', border: 'border-[#00A4B8]/40', bg: 'bg-[#00A4B8]/10' };
   }
   if (name.includes('CS') || name.includes('COMP') || name.includes('CODE')) {
-    return { dot: 'bg-[#00E599]', text: 'text-[#00E599]' };
+    return { dot: 'bg-[#00E599]', text: 'text-[#00E599]', border: 'border-[#00E599]/40', bg: 'bg-[#00E599]/10' };
   }
   if (name.includes('MATH') || name.includes('STAT') || name.includes('CALC')) {
-    return { dot: 'bg-indigo-400', text: 'text-indigo-400' };
+    return { dot: 'bg-indigo-400', text: 'text-indigo-400', border: 'border-indigo-400/40', bg: 'bg-indigo-400/10' };
   }
   if (name.includes('PHYS') || name.includes('CHEM') || name.includes('BIO')) {
-    return { dot: 'bg-cyan-400', text: 'text-cyan-400' };
+    return { dot: 'bg-cyan-400', text: 'text-cyan-400', border: 'border-cyan-400/40', bg: 'bg-cyan-400/10' };
   }
   if (name.includes('ENGL') || name.includes('RHET') || name.includes('LIT')) {
-    return { dot: 'bg-purple-400', text: 'text-purple-400' };
+    return { dot: 'bg-purple-400', text: 'text-purple-400', border: 'border-purple-400/40', bg: 'bg-purple-400/10' };
   }
   if (name.includes('HIST') || name.includes('GOV') || name.includes('POLI')) {
-    return { dot: 'bg-amber-400', text: 'text-amber-400' };
+    return { dot: 'bg-amber-400', text: 'text-amber-400', border: 'border-amber-400/40', bg: 'bg-amber-400/10' };
   }
-  return { dot: 'bg-[#FF3B00]', text: 'text-[#FF3B00]' };
+  return { dot: 'bg-[#FF3B00]', text: 'text-[#FF3B00]', border: 'border-[#FF3B00]/40', bg: 'bg-[#FF3B00]/10' };
 }
 
 export function AssignmentCard({ assignment, isFrontCard = false }: AssignmentCardProps) {
