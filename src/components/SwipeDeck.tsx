@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { CanvasAssignment, PreferredAI, AI_PROVIDERS } from '@/lib/types';
@@ -24,8 +24,6 @@ import {
   Eye,
   Download,
   LayoutGrid,
-  ChevronLeft,
-  ChevronRight,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -50,12 +48,8 @@ export function SwipeDeck({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastSubtext, setToastSubtext] = useState<string | null>(null);
 
-  // Overview Hand / Grid Modal state
+  // Overview Modal state
   const [showOverview, setShowOverview] = useState<boolean>(false);
-  const [overviewMode, setOverviewMode] = useState<'fan' | 'grid'>('fan');
-
-  // Ref for PC card hand horizontal scrolling
-  const cardHandRef = useRef<HTMLDivElement>(null);
 
   // State for < 12 hours urgent swipe-left confirmation
   const [pendingSkip, setPendingSkip] = useState<{
@@ -67,26 +61,6 @@ export function SwipeDeck({
   const [activeDetailAssignment, setActiveDetailAssignment] = useState<CanvasAssignment | null>(null);
 
   const { isPhone, isTablet, isDesktop } = useDevice();
-
-  // Scroll PC Card Hand Left / Right
-  const scrollHandLeft = () => {
-    if (cardHandRef.current) {
-      cardHandRef.current.scrollBy({ left: -340, behavior: 'smooth' });
-    }
-  };
-
-  const scrollHandRight = () => {
-    if (cardHandRef.current) {
-      cardHandRef.current.scrollBy({ left: 340, behavior: 'smooth' });
-    }
-  };
-
-  // Handle Mouse Wheel horizontal panning on PC
-  const handleHandWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    if (cardHandRef.current) {
-      cardHandRef.current.scrollLeft += e.deltaY;
-    }
-  };
 
   // Load deck & filter out swiped IDs (persisted across refreshes)
   useEffect(() => {
@@ -337,19 +311,10 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
     setHasSwipedAny(false);
   };
 
-  // Keyboard controls for deck swiping AND overview PC scrolling
+  // Keyboard controls for deck swiping
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (showOverview) {
-        if (e.key === 'ArrowLeft') {
-          scrollHandLeft();
-        } else if (e.key === 'ArrowRight') {
-          scrollHandRight();
-        }
-        return;
-      }
-
-      if (deck.length === 0 || swipingId || pendingSkip || activeDetailAssignment) return;
+      if (showOverview || deck.length === 0 || swipingId || pendingSkip || activeDetailAssignment) return;
       if (e.key === 'ArrowLeft') {
         handleSwipe('left');
       } else if (e.key === 'ArrowRight') {
@@ -388,7 +353,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
       {/* Toast Notification */}
       <Toast message={toastMessage} subtext={toastSubtext} onClose={() => setToastMessage(null)} />
 
-      {/* FULL DECK HAND OVERVIEW MODAL */}
+      {/* FULL DECK GRID OVERVIEW MODAL */}
       <AnimatePresence>
         {showOverview && (
           <motion.div
@@ -405,160 +370,29 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
                 </div>
                 <div>
                   <h2 className="text-xl sm:text-2xl font-black text-white font-display">
-                    Deck Hand Overview
+                    Deck Overview
                   </h2>
                   <p className="text-xs text-slate-400">
-                    {deck.length} card{deck.length === 1 ? '' : 's'} remaining in hand • Tap any card to focus
+                    {deck.length} card{deck.length === 1 ? '' : 's'} remaining • Click any card to focus
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                {/* Mode Switcher */}
-                <div className="flex items-center rounded-xl bg-slate-900 border border-slate-800 p-1">
-                  <button
-                    onClick={() => setOverviewMode('fan')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                      overviewMode === 'fan'
-                        ? 'bg-[#FF3B00] text-white shadow-md'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    Card Hand
-                  </button>
-                  <button
-                    onClick={() => setOverviewMode('grid')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                      overviewMode === 'grid'
-                        ? 'bg-[#FF3B00] text-white shadow-md'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    Grid View
-                  </button>
-                </div>
-
-                <button
-                  onClick={() => setShowOverview(false)}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
+              <button
+                onClick={() => setShowOverview(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
 
-            {/* Overview Content Body */}
-            <div className="flex-1 w-full max-w-5xl flex flex-col items-center justify-center py-2 relative">
+            {/* Overview Content Body - Pure Clean Grid View */}
+            <div className="flex-1 w-full max-w-5xl flex flex-col items-center justify-start py-2">
               {deck.length === 0 ? (
                 <div className="text-center py-12">
-                  <p className="text-slate-400 text-sm">No cards remaining in your hand!</p>
-                </div>
-              ) : overviewMode === 'fan' ? (
-                /* ACCESSIBLE CARD HAND FAN-OUT VIEW WITH PC DESKTOP ARROWS & MOUSE WHEEL */
-                <div className="relative w-full flex flex-col items-center justify-center min-h-[380px] sm:min-h-[460px] py-4">
-                  <p className="text-xs font-mono text-slate-400 mb-3 flex items-center gap-2">
-                    <ChevronLeft className="h-4 w-4 text-[#FF3B00]" />
-                    <span>Use PC Scroll Arrows, Mouse Wheel or Arrow Keys • Tap any card to select</span>
-                    <ChevronRight className="h-4 w-4 text-[#FF3B00]" />
-                  </p>
-
-                  {/* Desktop Floating Left Scroll Arrow */}
-                  <button
-                    onClick={scrollHandLeft}
-                    title="Scroll Left (Left Arrow Key)"
-                    className="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 z-40 h-12 w-12 items-center justify-center rounded-full bg-[#111622]/90 border border-slate-700 text-white shadow-2xl hover:bg-[#FF3B00] hover:border-[#FF3B00] transition-all active:scale-90"
-                  >
-                    <ChevronLeft className="h-6 w-6" />
-                  </button>
-
-                  {/* Desktop Floating Right Scroll Arrow */}
-                  <button
-                    onClick={scrollHandRight}
-                    title="Scroll Right (Right Arrow Key)"
-                    className="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 z-40 h-12 w-12 items-center justify-center rounded-full bg-[#111622]/90 border border-slate-700 text-white shadow-2xl hover:bg-[#FF3B00] hover:border-[#FF3B00] transition-all active:scale-90"
-                  >
-                    <ChevronRight className="h-6 w-6" />
-                  </button>
-
-                  {/* Horizontally Scrollable Card Hand Container */}
-                  <div
-                    ref={cardHandRef}
-                    onWheel={handleHandWheel}
-                    className="w-full overflow-x-auto py-6 px-8 flex items-center justify-start sm:justify-center gap-4 sm:gap-6 snap-x snap-mandatory no-scrollbar scroll-smooth"
-                  >
-                    {deck.map((item, idx) => {
-                      const total = deck.length;
-                      const mid = (total - 1) / 2;
-                      const offset = idx - mid;
-                      const rotateDeg = Math.min(Math.max(offset * 3, -8), 8);
-                      const theme = getCourseTheme(item.course);
-
-                      return (
-                        <motion.div
-                          key={item.id}
-                          onClick={() => handleSelectFromOverview(item)}
-                          initial={{ opacity: 0, scale: 0.9 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          style={{
-                            rotate: `${rotateDeg}deg`,
-                          }}
-                          whileHover={{
-                            scale: 1.08,
-                            rotate: 0,
-                            y: -16,
-                            zIndex: 50,
-                            transition: { duration: 0.15 },
-                          }}
-                          className={`w-64 sm:w-72 h-80 sm:h-96 shrink-0 snap-center cursor-pointer rounded-[2rem] border bg-[#111622] p-5 sm:p-6 shadow-2xl transition-all card-tactile ${theme.border} group relative flex flex-col justify-between`}
-                        >
-                          {/* Card Content Header */}
-                          <div>
-                            <div className="flex items-center justify-between mb-3">
-                              <span className={`inline-flex items-center gap-1.5 text-xs font-mono font-bold px-2.5 py-1 rounded-full border ${theme.text} ${theme.bg} ${theme.border}`}>
-                                <span className={`h-2 w-2 rounded-full ${theme.dot}`} />
-                                {item.course}
-                              </span>
-                              <span className="text-xs text-slate-500 font-mono font-bold">
-                                #{idx + 1}
-                              </span>
-                            </div>
-
-                            <h4 className="text-white font-extrabold text-base sm:text-lg line-clamp-3 font-display mb-2 group-hover:text-white transition-colors">
-                              {item.title}
-                            </h4>
-
-                            <p className="text-xs text-slate-400 line-clamp-3 leading-relaxed mb-3">
-                              {item.description || 'No detailed instructions provided in calendar feed.'}
-                            </p>
-                          </div>
-
-                          {/* Card Content Footer */}
-                          <div className="space-y-3 pt-3 border-t border-slate-800">
-                            {item.attachments && item.attachments.length > 0 && (
-                              <div className="inline-flex items-center gap-1 text-[11px] font-mono text-cyan-300 bg-cyan-500/10 px-2.5 py-1 rounded-xl border border-cyan-500/20">
-                                <Paperclip className="h-3 w-3 text-cyan-400" />
-                                <span>{item.attachments.length} attached file(s)</span>
-                              </div>
-                            )}
-
-                            <p className="text-xs text-slate-400 font-mono">
-                              Due: <strong className="text-slate-200">{new Date(item.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</strong>
-                            </p>
-
-                            <button
-                              type="button"
-                              className={`w-full rounded-xl py-2.5 text-xs font-bold text-slate-950 font-display transition-all shadow-md ${theme.dot}`}
-                            >
-                              Focus Card →
-                            </button>
-                          </div>
-                        </motion.div>
-                      );
-                    })}
-                  </div>
+                  <p className="text-slate-400 text-sm">No cards remaining in your deck!</p>
                 </div>
               ) : (
-                /* GRID VIEW WITH MATCHING COURSE COLOR BADGES */
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 w-full py-4">
                   {deck.map((item, idx) => {
                     const theme = getCourseTheme(item.course);
@@ -566,32 +400,43 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
                       <motion.div
                         key={item.id}
                         onClick={() => handleSelectFromOverview(item)}
-                        whileHover={{ scale: 1.02 }}
+                        whileHover={{ scale: 1.02, y: -4 }}
                         className={`cursor-pointer rounded-2xl border bg-[#111622] p-5 shadow-lg transition-all card-tactile group flex flex-col justify-between ${theme.border}`}
                       >
                         <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className={`inline-flex items-center gap-1.5 text-xs font-mono font-bold px-2.5 py-0.5 rounded-full border ${theme.text} ${theme.bg} ${theme.border}`}>
+                          <div className="flex items-center justify-between mb-3">
+                            <span className={`inline-flex items-center gap-1.5 text-xs font-mono font-bold px-2.5 py-1 rounded-full border ${theme.text} ${theme.bg} ${theme.border}`}>
                               <span className={`h-2 w-2 rounded-full ${theme.dot}`} />
                               {item.course}
                             </span>
                             <span className="text-xs text-slate-500 font-mono font-bold">#{idx + 1}</span>
                           </div>
-                          <h4 className="text-white font-bold text-base font-display mb-2 group-hover:text-white transition-colors">
+
+                          <h4 className="text-white font-extrabold text-base font-display mb-2 group-hover:text-[#FF3B00] transition-colors leading-snug">
                             {item.title}
                           </h4>
-                          <p className="text-xs text-slate-400 line-clamp-2 mb-4">
-                            {item.description || 'No detailed instructions provided.'}
+
+                          <p className="text-xs text-slate-400 line-clamp-3 leading-relaxed mb-4">
+                            {item.description || 'No detailed instructions provided in calendar feed.'}
                           </p>
                         </div>
 
-                        <div className="flex items-center justify-between pt-3 border-t border-slate-800/80">
-                          <span className="text-xs text-slate-400 font-mono">
-                            Due: {new Date(item.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                          </span>
-                          <span className={`text-xs font-bold ${theme.text} group-hover:underline`}>
-                            Focus Card →
-                          </span>
+                        <div className="space-y-3 pt-3 border-t border-slate-800/80">
+                          {item.attachments && item.attachments.length > 0 && (
+                            <div className="inline-flex items-center gap-1 text-[11px] font-mono text-cyan-300 bg-cyan-500/10 px-2.5 py-1 rounded-xl border border-cyan-500/20">
+                              <Paperclip className="h-3 w-3 text-cyan-400" />
+                              <span>{item.attachments.length} attached file(s)</span>
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-slate-400 font-mono">
+                              Due: <strong className="text-slate-200">{new Date(item.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</strong>
+                            </span>
+                            <span className={`text-xs font-bold ${theme.text} group-hover:underline font-display`}>
+                              Focus Card →
+                            </span>
+                          </div>
                         </div>
                       </motion.div>
                     );
@@ -603,7 +448,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
             {/* Overview Footer */}
             <div className="w-full max-w-5xl flex items-center justify-between pt-3 border-t border-slate-800 shrink-0">
               <span className="text-xs text-slate-400 font-mono">
-                Tip: Click any card above to bring it to the front of your deck
+                Tip: Click any card above to bring it to the top of your deck
               </span>
               <button
                 onClick={() => setShowOverview(false)}
