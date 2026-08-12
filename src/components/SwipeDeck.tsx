@@ -8,7 +8,25 @@ import { previewFile } from '@/lib/file-utils';
 import { AssignmentCard } from './AssignmentCard';
 import { Toast } from './Toast';
 import { useDevice } from '@/lib/use-device';
-import { X, Check, RotateCcw, CheckCircle2, History as HistoryIcon, Layers, AlertTriangle, Clock, ExternalLink, Sparkles, CheckCircle, Paperclip, Eye, Download } from 'lucide-react';
+import {
+  X,
+  Check,
+  RotateCcw,
+  CheckCircle2,
+  History as HistoryIcon,
+  Layers,
+  AlertTriangle,
+  Clock,
+  ExternalLink,
+  Sparkles,
+  CheckCircle,
+  Paperclip,
+  Eye,
+  Download,
+  LayoutGrid,
+  Grid,
+  Zap,
+} from 'lucide-react';
 import Link from 'next/link';
 
 interface SwipeDeckProps {
@@ -31,6 +49,10 @@ export function SwipeDeck({
   const [hasSwipedAny, setHasSwipedAny] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastSubtext, setToastSubtext] = useState<string | null>(null);
+
+  // Overview Hand / Grid Modal state
+  const [showOverview, setShowOverview] = useState<boolean>(false);
+  const [overviewMode, setOverviewMode] = useState<'fan' | 'grid'>('fan');
 
   // State for < 12 hours urgent swipe-left confirmation
   const [pendingSkip, setPendingSkip] = useState<{
@@ -155,7 +177,7 @@ export function SwipeDeck({
     setHistoryCount((prev) => ({ ...prev, left: prev.left + 1 }));
 
     setTimeout(() => {
-      setDeck((prev) => prev.slice(1));
+      setDeck((prev) => prev.filter((a) => a.id !== targetAssignment.id));
       setSwipingId(null);
       setSwipeOffset(0);
       setPendingSkip(null);
@@ -170,6 +192,16 @@ export function SwipeDeck({
     },
     []
   );
+
+  // Jump chosen card from Overview directly to top of deck
+  const handleSelectFromOverview = (selectedAssignment: CanvasAssignment) => {
+    setDeck((prev) => {
+      const remaining = prev.filter((a) => a.id !== selectedAssignment.id);
+      return [selectedAssignment, ...remaining];
+    });
+    setShowOverview(false);
+    setActiveDetailAssignment(selectedAssignment);
+  };
 
   // Handle "I've Done It!" Completion Button Click
   const handleMarkAsDone = (targetAssignment: CanvasAssignment) => {
@@ -285,7 +317,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
   // Keyboard controls
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (deck.length === 0 || swipingId || pendingSkip || activeDetailAssignment) return;
+      if (deck.length === 0 || swipingId || pendingSkip || activeDetailAssignment || showOverview) return;
       if (e.key === 'ArrowLeft') {
         handleSwipe('left');
       } else if (e.key === 'ArrowRight') {
@@ -295,7 +327,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [deck, swipingId, pendingSkip, activeDetailAssignment, handleSwipe]);
+  }, [deck, swipingId, pendingSkip, activeDetailAssignment, showOverview, handleSwipe]);
 
   // Confetti on clear ONLY if user actually swiped cards in this session!
   useEffect(() => {
@@ -323,6 +355,190 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
     <div className="relative flex flex-col items-center justify-center w-full max-w-2xl mx-auto">
       {/* Toast Notification */}
       <Toast message={toastMessage} subtext={toastSubtext} onClose={() => setToastMessage(null)} />
+
+      {/* FULL DECK HAND OVERVIEW MODAL */}
+      <AnimatePresence>
+        {showOverview && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex flex-col items-center justify-between p-4 sm:p-6 bg-[#080A0F]/90 backdrop-blur-2xl overflow-y-auto"
+          >
+            {/* Overview Header */}
+            <div className="w-full max-w-5xl flex items-center justify-between py-2 border-b border-slate-800 mb-6 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FF3B00]/15 text-[#FF3B00] border border-[#FF3B00]/30">
+                  <LayoutGrid className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-xl sm:text-2xl font-black text-white font-display">
+                    Deck Hand Overview
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    {deck.length} card{deck.length === 1 ? '' : 's'} remaining in your hand • Tap any card to focus
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {/* Mode Switcher */}
+                <div className="flex items-center rounded-xl bg-slate-900 border border-slate-800 p-1">
+                  <button
+                    onClick={() => setOverviewMode('fan')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      overviewMode === 'fan'
+                        ? 'bg-[#FF3B00] text-white shadow-md'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Card Hand
+                  </button>
+                  <button
+                    onClick={() => setOverviewMode('grid')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      overviewMode === 'grid'
+                        ? 'bg-[#FF3B00] text-white shadow-md'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Grid View
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => setShowOverview(false)}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Overview Content Body */}
+            <div className="flex-1 w-full max-w-5xl flex flex-col items-center justify-center py-4">
+              {deck.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-slate-400 text-sm">No cards remaining in your hand!</p>
+                </div>
+              ) : overviewMode === 'fan' ? (
+                /* CARD HAND FAN-OUT VIEW */
+                <div className="relative w-full flex flex-col items-center justify-center min-h-[380px] sm:min-h-[460px] py-8 overflow-x-auto no-scrollbar">
+                  <div className="flex items-center justify-center -space-x-12 sm:-space-x-24 md:-space-x-32 py-10 px-6">
+                    {deck.map((item, idx) => {
+                      const total = deck.length;
+                      const mid = (total - 1) / 2;
+                      const offset = idx - mid;
+                      const rotateDeg = Math.min(Math.max(offset * 6, -24), 24);
+                      const translateY = Math.abs(offset) * 8;
+
+                      return (
+                        <motion.div
+                          key={item.id}
+                          onClick={() => handleSelectFromOverview(item)}
+                          style={{
+                            rotate: `${rotateDeg}deg`,
+                            y: translateY,
+                            zIndex: 10 + idx,
+                          }}
+                          whileHover={{
+                            scale: 1.12,
+                            rotate: 0,
+                            y: -30,
+                            zIndex: 100,
+                            transition: { duration: 0.18 },
+                          }}
+                          className="w-56 sm:w-64 md:w-72 h-80 sm:h-96 shrink-0 cursor-pointer rounded-[2rem] border border-slate-700/80 bg-[#111622] p-5 shadow-2xl transition-all card-tactile hover:border-[#FF3B00] group relative"
+                        >
+                          <div className="flex flex-col justify-between h-full">
+                            <div>
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-[10px] sm:text-xs font-mono font-bold text-[#FF3B00] bg-[#FF3B00]/10 px-2 py-0.5 rounded-full border border-[#FF3B00]/20 truncate">
+                                  {item.course}
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-semibold">
+                                  #{idx + 1}
+                                </span>
+                              </div>
+                              <h4 className="text-white font-bold text-sm sm:text-base line-clamp-3 font-display mb-2 group-hover:text-[#FF3B00] transition-colors">
+                                {item.title}
+                              </h4>
+                            </div>
+
+                            <div className="space-y-2">
+                              {item.attachments && item.attachments.length > 0 && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-mono text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
+                                  <Paperclip className="h-3 w-3" />
+                                  <span>{item.attachments.length} file(s)</span>
+                                </span>
+                              )}
+                              <p className="text-[11px] text-slate-400 font-mono">
+                                Due: {new Date(item.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                              </p>
+                              <div className="w-full rounded-xl bg-[#FF3B00]/10 border border-[#FF3B00]/30 py-2 text-center text-xs font-bold text-[#FF3B00] group-hover:bg-[#FF3B00] group-hover:text-white transition-all font-display">
+                                Focus Card →
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                /* GRID VIEW */
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 w-full py-4">
+                  {deck.map((item, idx) => (
+                    <motion.div
+                      key={item.id}
+                      onClick={() => handleSelectFromOverview(item)}
+                      whileHover={{ scale: 1.02 }}
+                      className="cursor-pointer rounded-2xl border border-slate-800 bg-[#111622] p-5 shadow-lg hover:border-[#FF3B00] transition-all card-tactile group flex flex-col justify-between"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-mono font-bold text-[#FF3B00] bg-[#FF3B00]/10 px-2.5 py-0.5 rounded-full border border-[#FF3B00]/20">
+                            {item.course}
+                          </span>
+                          <span className="text-xs text-slate-500 font-mono">#{idx + 1}</span>
+                        </div>
+                        <h4 className="text-white font-bold text-base font-display mb-2 group-hover:text-[#FF3B00] transition-colors">
+                          {item.title}
+                        </h4>
+                        <p className="text-xs text-slate-400 line-clamp-2 mb-4">
+                          {item.description || 'No detailed instructions provided.'}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-3 border-t border-slate-800/80">
+                        <span className="text-xs text-slate-400 font-mono">
+                          Due: {new Date(item.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        </span>
+                        <span className="text-xs font-bold text-[#FF3B00] group-hover:underline">
+                          Focus Card →
+                        </span>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Overview Footer */}
+            <div className="w-full max-w-5xl flex items-center justify-between pt-3 border-t border-slate-800 shrink-0">
+              <span className="text-xs text-slate-400 font-mono">
+                Tip: Click any card above to bring it to the front of your deck
+              </span>
+              <button
+                onClick={() => setShowOverview(false)}
+                className="rounded-xl bg-slate-900 border border-slate-800 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 transition-colors"
+              >
+                Back to Deck
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Swipe Right Focus / Detail Modal ("I've Done It!") */}
       <AnimatePresence>
@@ -496,11 +712,23 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
         )}
       </AnimatePresence>
 
-      {/* Header Metric */}
+      {/* Header Metric & Overview Trigger */}
       <div className="w-full flex items-center justify-between px-2 mb-3 text-xs font-mono font-bold text-slate-400">
-        <div className="flex items-center gap-1.5 bg-slate-900/90 px-3 py-1 rounded-full border border-slate-800">
-          <Layers className="h-3.5 w-3.5 text-[#FF3B00]" />
-          <span>{deck.length} remaining</span>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 bg-slate-900/90 px-3 py-1 rounded-full border border-slate-800">
+            <Layers className="h-3.5 w-3.5 text-[#FF3B00]" />
+            <span>{deck.length} remaining</span>
+          </div>
+
+          {deck.length > 0 && (
+            <button
+              onClick={() => setShowOverview(true)}
+              className="inline-flex items-center gap-1.5 bg-[#FF3B00]/15 hover:bg-[#FF3B00]/25 text-[#FF3B00] border border-[#FF3B00]/30 px-3 py-1 rounded-full transition-all active:scale-95"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              <span>Deck Overview</span>
+            </button>
+          )}
         </div>
 
         {totalSwiped > 0 && (
