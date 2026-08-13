@@ -4,8 +4,52 @@ import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { PreferredAI, AI_PROVIDERS, ThemeId, APP_THEMES } from '@/lib/types';
 import { useTheme } from '@/components/ThemeProvider';
-import { Lock, Check, HelpCircle, ArrowLeft, Loader2, Palette, Sparkles, Layers, UserCheck, LogIn } from 'lucide-react';
+import { Lock, Check, HelpCircle, ArrowLeft, Loader2, Palette, Sparkles, Layers, UserCheck, LogIn, Database, Copy } from 'lucide-react';
 import Link from 'next/link';
+
+const SUPABASE_SQL_SNIPPET = `-- Run this in your Supabase SQL Editor to enable full cross-device sync:
+CREATE TABLE IF NOT EXISTS public.user_settings (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID,
+  user_email TEXT,
+  preferred_ai TEXT DEFAULT 'gemini',
+  theme TEXT DEFAULT 'default',
+  show_demo_data BOOLEAN DEFAULT false,
+  custom_assignments JSONB DEFAULT '[]'::jsonb,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.user_settings ADD COLUMN IF NOT EXISTS user_email TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_user_settings_email ON public.user_settings(user_email) WHERE user_email IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS public.canvas_credentials (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID,
+  user_email TEXT,
+  encrypted_feed_url TEXT,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.canvas_credentials ADD COLUMN IF NOT EXISTS user_email TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_canvas_credentials_email ON public.canvas_credentials(user_email) WHERE user_email IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS public.notification_logs (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_email TEXT NOT NULL,
+  assignment_id TEXT NOT NULL,
+  milestone TEXT NOT NULL,
+  sent_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_notification_logs_milestone ON public.notification_logs(user_email, assignment_id, milestone);
+
+ALTER TABLE public.user_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.canvas_credentials ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notification_logs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Public access for user_settings" ON public.user_settings FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Public access for canvas_credentials" ON public.canvas_credentials FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Public access for notification_logs" ON public.notification_logs FOR ALL USING (true) WITH CHECK (true);`;
 
 export default function SettingsPage() {
   const [feedUrl, setFeedUrl] = useState('');
@@ -16,6 +60,8 @@ export default function SettingsPage() {
   const [isGuest, setIsGuest] = useState<boolean>(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [copiedSql, setCopiedSql] = useState(false);
+  const [showSql, setShowSql] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   const { theme, setTheme } = useTheme();
@@ -112,6 +158,14 @@ export default function SettingsPage() {
     }).catch(() => {});
   };
 
+  const handleCopySql = () => {
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(SUPABASE_SQL_SNIPPET);
+      setCopiedSql(true);
+      setTimeout(() => setCopiedSql(false), 3000);
+    }
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -144,8 +198,8 @@ export default function SettingsPage() {
 
       setMessage({
         text: feedUrl.trim()
-          ? `Settings & Calendar Feed URL saved successfully! Deadlines will now sync to your deck.`
-          : `Settings saved successfully! Account preferences synced across your devices.`,
+          ? `Settings & Calendar Feed URL saved successfully! Synchronized across all your devices.`
+          : `Settings saved successfully! Synchronized across all your devices.`,
         type: 'success',
       });
       if (feedUrl.trim()) setHasFeedUrl(true);
@@ -210,7 +264,7 @@ export default function SettingsPage() {
                   </span>
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Your custom tasks, file attachments, and themes sync automatically to this account across all devices.
+                  Your calendar feed, custom tasks, file attachments, and themes sync automatically to this account across all devices.
                 </p>
               </div>
             </div>
@@ -412,6 +466,46 @@ export default function SettingsPage() {
                 Your feed URL is stored securely and parsed server-side.
               </p>
             </div>
+          </div>
+
+          {/* Section 5: Supabase Setup Helper (Collapsible) */}
+          <div className="rounded-2xl border border-slate-800 bg-[#111622] p-6 card-tactile">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Database className="h-5 w-5 text-[#00E599]" />
+                <h2 className="text-base font-bold text-white font-display">
+                  Supabase Database Sync Script
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSql(!showSql)}
+                className="text-xs text-slate-400 hover:text-white underline"
+              >
+                {showSql ? 'Hide SQL' : 'View SQL Migration'}
+              </button>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
+              Run this SQL script in your Supabase SQL Editor to enable full cross-device account syncing.
+            </p>
+
+            {showSql && (
+              <div className="mt-4 space-y-2">
+                <div className="relative">
+                  <pre className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-[11px] font-mono text-slate-300 overflow-x-auto max-h-60">
+                    {SUPABASE_SQL_SNIPPET}
+                  </pre>
+                  <button
+                    type="button"
+                    onClick={handleCopySql}
+                    className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-lg bg-slate-800 px-2.5 py-1 text-xs font-bold text-slate-200 hover:bg-slate-700 transition-colors"
+                  >
+                    {copiedSql ? <Check className="h-3.5 w-3.5 text-[#00E599]" /> : <Copy className="h-3.5 w-3.5" />}
+                    <span>{copiedSql ? 'Copied!' : 'Copy SQL'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Submit Button */}

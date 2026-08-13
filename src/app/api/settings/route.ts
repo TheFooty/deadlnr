@@ -4,7 +4,10 @@ import { encryptText, decryptText } from '@/lib/crypto';
 import { PreferredAI, ThemeId } from '@/lib/types';
 import { cookies } from 'next/headers';
 
-export async function GET() {
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
     const { data: { session } } = await supabase.auth.getSession();
@@ -13,6 +16,7 @@ export async function GET() {
     const cookieTheme = cookieStore.get('deadlnr_theme')?.value as ThemeId;
     const cookieDemo = cookieStore.get('deadlnr_show_demo_data')?.value === 'true';
     const cookieFeedUrlEnc = cookieStore.get('deadlnr_feed_url')?.value;
+    const userEmail = cookieStore.get('deadlnr_user_email')?.value || session?.user?.email;
 
     let hasFeed = false;
     let decryptedCookieFeed = '';
@@ -23,7 +27,8 @@ export async function GET() {
       } catch {}
     }
 
-    if (!session?.user) {
+    // If completely unauthenticated guest (no Supabase session and no OTP email cookie)
+    if (!session?.user && !userEmail) {
       return NextResponse.json({
         preferred_ai: cookieAi || 'gemini',
         theme: cookieTheme || 'default',
@@ -31,53 +36,73 @@ export async function GET() {
         has_feed_url: hasFeed,
         feed_url: decryptedCookieFeed || undefined,
         isGuest: true,
+        userEmail: null,
       });
     }
 
-    const userId = session.user.id;
+    const userId = session?.user?.id;
+    let dbSettings: any = null;
+    let dbCreds: any = null;
 
-    // Get settings from Supabase safely using maybeSingle()
-    const { data: settings, error: settingsErr } = await supabase
-      .from('user_settings')
-      .select('preferred_ai, theme, show_demo_data, custom_assignments')
-      .eq('user_id', userId)
-      .maybeSingle();
+    // 1. Fetch settings from Supabase (by user_email or user_id)
+    if (userEmail) {
+      const { data } = await supabase
+        .from('user_settings')
+        .select('*')
+        .eq('user_email', userEmail)
+        .maybeSingle();
+      dbSettings = data;
 
-    if (settingsErr) {
-      console.error('Error fetching user_settings:', settingsErr);
+      const { data: cData } = await supabase
+        .from('canvas_credentials')
+        .select('*')
+        .eq('user_email', userEmail)
+        .maybeSingle();
+      dbCreds = cData;
     }
 
-    // Check credentials existence safely using maybeSingle()
-    const { data: creds, error: credsErr } = await supabase
-      .from('canvas_credentials')
-      .select('encrypted_feed_url')
-      .eq('user_id', userId)
-      .maybeSingle();
+    if (!dbSettings && userId) {
+      const { data } = await supabase
+        .from('user_settings')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+      dbSettings = data;
+    }
 
-    if (credsErr) {
-      console.error('Error checking canvas_credentials:', credsErr);
+    if (!dbCreds && userId) {
+      const { data: cData } = await supabase
+        .from('canvas_credentials')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+      dbCreds = cData;
     }
 
     let dbFeedUrl = '';
-    if (creds?.encrypted_feed_url) {
+    if (dbCreds?.encrypted_feed_url) {
       try {
-        dbFeedUrl = decryptText(creds.encrypted_feed_url);
-        hasFeed = true;
+        const decrypted = decryptText(dbCreds.encrypted_feed_url);
+        if (decrypted.startsWith('http')) {
+          dbFeedUrl = decrypted;
+          hasFeed = true;
+        }
       } catch {}
     }
 
-    const selectedAi = (settings?.preferred_ai as PreferredAI) || cookieAi || 'gemini';
-    const selectedTheme = (settings?.theme as ThemeId) || cookieTheme || 'default';
-    const showDemoData = settings?.show_demo_data ?? cookieDemo;
+    const selectedAi = (dbSettings?.preferred_ai as PreferredAI) || cookieAi || 'gemini';
+    const selectedTheme = (dbSettings?.theme as ThemeId) || cookieTheme || 'default';
+    const showDemoData = dbSettings?.show_demo_data ?? cookieDemo;
 
     return NextResponse.json({
       preferred_ai: selectedAi,
       theme: selectedTheme,
       show_demo_data: showDemoData,
-      custom_assignments: settings?.custom_assignments || [],
+      custom_assignments: dbSettings?.custom_assignments || [],
       has_feed_url: hasFeed,
       feed_url: dbFeedUrl || decryptedCookieFeed || undefined,
       isGuest: false,
+      userEmail: userEmail || session?.user?.email || null,
     });
   } catch (error: any) {
     console.error('Error in GET /api/settings:', error);
@@ -89,6 +114,10 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
     const { data: { session } } = await supabase.auth.getSession();
+    const cookieStore = await cookies();
+    const userEmailCookie = cookieStore.get('deadlnr_user_email')?.value;
+    const userEmail = session?.user?.email || userEmailCookie;
+    const userId = session?.user?.id;
 
     const body = await request.json();
     const { feed_url, preferred_ai, theme, show_demo_data, custom_assignments } = body;
@@ -98,33 +127,35 @@ export async function POST(request: NextRequest) {
       preferred_ai: preferred_ai || 'gemini',
       theme: theme || 'default',
       show_demo_data: !!show_demo_data,
-      isGuest: !session?.user,
+      isGuest: !userEmail && !userId,
     });
+
+    const maxCookieAge = 31536000; // 1 year
 
     // Set cookies on response for cross-page & guest fallback persistence
     if (preferred_ai) {
       response.cookies.set('deadlnr_preferred_ai', preferred_ai, {
         path: '/',
-        maxAge: 31536000, // 1 year
+        maxAge: maxCookieAge,
       });
     }
 
     if (theme) {
       response.cookies.set('deadlnr_theme', theme, {
         path: '/',
-        maxAge: 31536000,
+        maxAge: maxCookieAge,
       });
     }
 
     response.cookies.set('deadlnr_show_demo_data', String(!!show_demo_data), {
       path: '/',
-      maxAge: 31536000,
+      maxAge: maxCookieAge,
     });
 
     if (Array.isArray(custom_assignments)) {
       response.cookies.set('deadlnr_custom_assignments', JSON.stringify(custom_assignments), {
         path: '/',
-        maxAge: 31536000,
+        maxAge: maxCookieAge,
       });
     }
 
@@ -142,53 +173,56 @@ export async function POST(request: NextRequest) {
       const encryptedUrl = encryptText(trimmedUrl);
       response.cookies.set('deadlnr_feed_url', encryptedUrl, {
         path: '/',
-        maxAge: 31536000,
+        maxAge: maxCookieAge,
       });
     }
 
-    if (!session?.user) {
-      return response;
-    }
+    // If logged in via email or Supabase session, save to Supabase DB for cross-device sync
+    if (userEmail || userId) {
+      const cleanEmail = userEmail ? userEmail.trim().toLowerCase() : null;
 
-    const userId = session.user.id;
+      // 1. Save user_settings
+      const userSettingsPayload: Record<string, any> = {
+        updated_at: new Date().toISOString(),
+      };
+      if (cleanEmail) userSettingsPayload.user_email = cleanEmail;
+      if (userId) userSettingsPayload.user_id = userId;
+      if (preferred_ai) userSettingsPayload.preferred_ai = preferred_ai;
+      if (theme) userSettingsPayload.theme = theme;
+      if (typeof show_demo_data === 'boolean') userSettingsPayload.show_demo_data = show_demo_data;
+      if (Array.isArray(custom_assignments)) userSettingsPayload.custom_assignments = custom_assignments;
 
-    // Build upsert payload for Supabase database account persistence
-    const upsertData: Record<string, any> = {
-      user_id: userId,
-      updated_at: new Date().toISOString(),
-    };
+      if (cleanEmail) {
+        await supabase
+          .from('user_settings')
+          .upsert(userSettingsPayload, { onConflict: 'user_email' });
+      } else if (userId) {
+        await supabase
+          .from('user_settings')
+          .upsert(userSettingsPayload, { onConflict: 'user_id' });
+      }
 
-    if (preferred_ai) upsertData.preferred_ai = preferred_ai;
-    if (theme) upsertData.theme = theme;
-    if (typeof show_demo_data === 'boolean') upsertData.show_demo_data = show_demo_data;
-    if (Array.isArray(custom_assignments)) upsertData.custom_assignments = custom_assignments;
+      // 2. Save encrypted feed URL to canvas_credentials
+      if (trimmedUrl) {
+        const encryptedFeedUrl = encryptText(trimmedUrl);
+        const credsPayload: Record<string, any> = {
+          encrypted_feed_url: encryptedFeedUrl,
+          updated_at: new Date().toISOString(),
+        };
+        if (cleanEmail) credsPayload.user_email = cleanEmail;
+        if (userId) credsPayload.user_id = userId;
 
-    const { error: upsertErr } = await supabase
-      .from('user_settings')
-      .upsert(upsertData, { onConflict: 'user_id' });
-
-    if (upsertErr) {
-      console.error('Failed to upsert user_settings:', upsertErr);
-    }
-
-    // Save/update encrypted feed URL in Supabase database for logged-in user
-    if (trimmedUrl) {
-      const encryptedFeedUrl = encryptText(trimmedUrl);
-
-      const { error: feedErr } = await supabase
-        .from('canvas_credentials')
-        .upsert(
-          {
-            user_id: userId,
-            encrypted_feed_url: encryptedFeedUrl,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'user_id' }
-        );
-
-      if (feedErr) {
-        console.error('Failed to upsert canvas_credentials:', feedErr);
-        // Do not fail hard if DB credentials table has RLS issue — cookie fallback will work!
+        if (cleanEmail) {
+          const { error: credErr } = await supabase
+            .from('canvas_credentials')
+            .upsert(credsPayload, { onConflict: 'user_email' });
+          if (credErr) console.error('Supabase canvas_credentials upsert error (email):', credErr);
+        } else if (userId) {
+          const { error: credErr } = await supabase
+            .from('canvas_credentials')
+            .upsert(credsPayload, { onConflict: 'user_id' });
+          if (credErr) console.error('Supabase canvas_credentials upsert error (userId):', credErr);
+        }
       }
     }
 

@@ -24,6 +24,42 @@ function cleanDescription(rawDesc?: string): string {
 }
 
 /**
+ * Checks if an event is completed, submitted, or cancelled on Canvas LMS
+ */
+function isAssignmentCompletedOrCancelled(item: any, rawDesc: string, summary: string): boolean {
+  // Check standard iCal STATUS
+  const status = (item.status || '').toString().toUpperCase();
+  if (status === 'COMPLETED' || status === 'CANCELLED' || status === 'TENTATIVE') {
+    return true;
+  }
+
+  // Check summary indicators
+  const upperSummary = (summary || '').toUpperCase();
+  if (
+    upperSummary.includes('[COMPLETED]') ||
+    upperSummary.includes('[SUBMITTED]') ||
+    upperSummary.includes('(SUBMITTED)') ||
+    upperSummary.includes('(COMPLETED)') ||
+    upperSummary.includes('[TURNED IN]')
+  ) {
+    return true;
+  }
+
+  // Check description indicators
+  const upperDesc = (rawDesc || '').toUpperCase();
+  if (
+    upperDesc.includes('STATUS: SUBMITTED') ||
+    upperDesc.includes('STATUS: COMPLETED') ||
+    upperDesc.includes('SUBMISSION: SUBMITTED') ||
+    upperDesc.includes('ALREADY SUBMITTED')
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Splits Canvas VEVENT SUMMARY into title and course.
  * Canvas usually encodes course like: "Essay Draft [ENGL 201]" or "Quiz 2 (CS 101)"
  */
@@ -74,8 +110,9 @@ function extractCanvasUrl(eventUrl?: string | { val?: string }, rawDescription?:
 
   // Search description for http links to canvas/instructure/courses
   if (rawDescription) {
-    const urlMatch = rawDescription.match(/https?:\/\/[^\s"<>]+\/courses\/\d+\/assignments\/\d+/i) ||
-                     rawDescription.match(/https?:\/\/[^\s"<>]+/i);
+    const urlMatch =
+      rawDescription.match(/https?:\/\/[^\s"<>]+\/courses\/\d+\/assignments\/\d+/i) ||
+      rawDescription.match(/https?:\/\/[^\s"<>]+/i);
     if (urlMatch) {
       return urlMatch[0];
     }
@@ -91,15 +128,21 @@ export async function parseCanvasICalFeed(icsContent: string): Promise<CanvasAss
   try {
     const parsedData = await ical.async.parseICS(icsContent);
     const assignments: CanvasAssignment[] = [];
-    const now = new Date();
+    const now = new Date().getTime();
 
     for (const key in parsedData) {
       const item = parsedData[key];
       if (!item || item.type !== 'VEVENT') continue;
 
       const summary = item.summary ? String(item.summary) : '';
-      const { title, course } = parseTitleAndCourse(summary);
       const rawDesc = item.description ? String(item.description) : '';
+
+      // Skip completed, submitted, or cancelled assignments
+      if (isAssignmentCompletedOrCancelled(item, rawDesc, summary)) {
+        continue;
+      }
+
+      const { title, course } = parseTitleAndCourse(summary);
       const description = cleanDescription(rawDesc);
       const canvasUrl = extractCanvasUrl(item.url, rawDesc);
 
@@ -112,6 +155,15 @@ export async function parseCanvasICalFeed(icsContent: string): Promise<CanvasAss
       }
 
       const dueDate = dueDateObj ? dueDateObj.toISOString() : new Date().toISOString();
+
+      // Skip assignments that are way past due (> 3 days ago)
+      const dueTime = new Date(dueDate).getTime();
+      const diffHours = (dueTime - now) / (1000 * 60 * 60);
+      if (diffHours < -72) {
+        // Skip ancient assignments older than 3 days past due
+        continue;
+      }
+
       const id = item.uid || `canvas-${key}-${Date.now()}`;
 
       assignments.push({

@@ -5,6 +5,9 @@ import { parseCanvasICalFeed } from '@/lib/ical-parser';
 import { MOCK_ASSIGNMENTS } from '@/lib/mock-data';
 import { cookies } from 'next/headers';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -13,6 +16,7 @@ export async function GET(request: NextRequest) {
     const cookieStore = await cookies();
     const showDemoData = cookieStore.get('deadlnr_show_demo_data')?.value === 'true';
     const cookieFeedUrlEnc = cookieStore.get('deadlnr_feed_url')?.value;
+    const userEmailCookie = cookieStore.get('deadlnr_user_email')?.value;
 
     if (forceMock) {
       return NextResponse.json({ assignments: MOCK_ASSIGNMENTS, isMock: true });
@@ -20,7 +24,7 @@ export async function GET(request: NextRequest) {
 
     let feedUrl = '';
 
-    // Try reading feed URL from cookie fallback first
+    // 1. Try reading feed URL from cookie fallback first
     if (cookieFeedUrlEnc) {
       try {
         const decrypted = decryptText(cookieFeedUrlEnc);
@@ -32,39 +36,70 @@ export async function GET(request: NextRequest) {
 
     const supabase = await createClient();
     const { data: { session } } = await supabase.auth.getSession();
+    const userEmail = session?.user?.email || userEmailCookie;
+    const userId = session?.user?.id;
 
     let userWantsDemo = showDemoData;
 
-    // Check DB user_settings if logged in
-    if (session?.user) {
-      const { data: settings } = await supabase
-        .from('user_settings')
-        .select('show_demo_data')
-        .eq('user_id', session.user.id)
-        .maybeSingle();
+    // 2. Fetch encrypted feed URL from Supabase (by user_email or user_id)
+    if (userEmail || userId) {
+      // Check user_settings
+      if (userEmail) {
+        const { data: settings } = await supabase
+          .from('user_settings')
+          .select('show_demo_data')
+          .eq('user_email', userEmail)
+          .maybeSingle();
 
-      if (settings?.show_demo_data !== undefined) {
-        userWantsDemo = !!settings.show_demo_data;
+        if (settings?.show_demo_data !== undefined) {
+          userWantsDemo = !!settings.show_demo_data;
+        }
+
+        const { data: creds } = await supabase
+          .from('canvas_credentials')
+          .select('encrypted_feed_url')
+          .eq('user_email', userEmail)
+          .maybeSingle();
+
+        if (creds?.encrypted_feed_url) {
+          try {
+            const dbDecrypted = decryptText(creds.encrypted_feed_url);
+            if (dbDecrypted.startsWith('http')) {
+              feedUrl = dbDecrypted;
+            }
+          } catch {}
+        }
       }
 
-      // Fetch encrypted feed URL from DB if logged in
-      const { data: creds } = await supabase
-        .from('canvas_credentials')
-        .select('encrypted_feed_url')
-        .eq('user_id', session.user.id)
-        .maybeSingle();
+      if (!feedUrl && userId) {
+        const { data: settings } = await supabase
+          .from('user_settings')
+          .select('show_demo_data')
+          .eq('user_id', userId)
+          .maybeSingle();
 
-      if (creds?.encrypted_feed_url) {
-        try {
-          const dbDecrypted = decryptText(creds.encrypted_feed_url);
-          if (dbDecrypted.startsWith('http')) {
-            feedUrl = dbDecrypted;
-          }
-        } catch {}
+        if (settings?.show_demo_data !== undefined) {
+          userWantsDemo = !!settings.show_demo_data;
+        }
+
+        const { data: creds } = await supabase
+          .from('canvas_credentials')
+          .select('encrypted_feed_url')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (creds?.encrypted_feed_url) {
+          try {
+            const dbDecrypted = decryptText(creds.encrypted_feed_url);
+            if (dbDecrypted.startsWith('http')) {
+              feedUrl = dbDecrypted;
+            }
+          } catch {}
+        }
       }
     }
 
-    // If still no feed URL found
+    // 3. If still no feed URL found
     if (!feedUrl) {
       if (userWantsDemo) {
         return NextResponse.json({
@@ -81,12 +116,12 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Fetch .ics file from Canvas / Kognity / Calendar URL
+    // 4. Fetch .ics file from Canvas / Kognity / Calendar URL
     const response = await fetch(feedUrl, {
       headers: {
         'User-Agent': 'Deadlnr-Canvas-App/1.0',
       },
-      next: { revalidate: 300 }, // Cache for 5 minutes
+      cache: 'no-store',
     });
 
     if (!response.ok) {
