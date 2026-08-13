@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid verification code. Please check your email and try again.' }, { status: 400 });
     }
 
-    // Verification successful! Set persistent user cookies for 1 year
+    // Verification successful!
     const response = NextResponse.json({
       success: true,
       email: cleanEmail,
@@ -65,6 +66,84 @@ export async function POST(request: NextRequest) {
 
     // Clear challenge cookie
     response.cookies.set('deadlnr_otp_challenge', '', { path: '/', maxAge: 0 });
+
+    // Sync credentials & settings between local device and Supabase account
+    try {
+      const supabase = await createClient();
+
+      const localFeedEnc = request.cookies.get('deadlnr_feed_url')?.value;
+      const localAi = request.cookies.get('deadlnr_preferred_ai')?.value;
+      const localTheme = request.cookies.get('deadlnr_theme')?.value;
+
+      // 1. Check existing DB credentials for this email
+      const { data: dbCreds } = await supabase
+        .from('canvas_credentials')
+        .select('encrypted_feed_url')
+        .ilike('user_email', cleanEmail)
+        .maybeSingle();
+
+      if (dbCreds?.encrypted_feed_url) {
+        // Feed exists in DB -> Sync to this device's cookies!
+        response.cookies.set('deadlnr_feed_url', dbCreds.encrypted_feed_url, {
+          path: '/',
+          maxAge,
+          sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production',
+        });
+      } else if (localFeedEnc) {
+        // Feed exists locally -> Upload to DB for this account!
+        await supabase
+          .from('canvas_credentials')
+          .upsert(
+            {
+              user_email: cleanEmail,
+              encrypted_feed_url: localFeedEnc,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'user_email' }
+          );
+      }
+
+      // 2. Check existing DB settings for this email
+      const { data: dbSettings } = await supabase
+        .from('user_settings')
+        .select('*')
+        .ilike('user_email', cleanEmail)
+        .maybeSingle();
+
+      if (dbSettings) {
+        if (dbSettings.preferred_ai) {
+          response.cookies.set('deadlnr_preferred_ai', dbSettings.preferred_ai, {
+            path: '/',
+            maxAge,
+            sameSite: 'lax',
+            secure: process.env.NODE_ENV === 'production',
+          });
+        }
+        if (dbSettings.theme) {
+          response.cookies.set('deadlnr_theme', dbSettings.theme, {
+            path: '/',
+            maxAge,
+            sameSite: 'lax',
+            secure: process.env.NODE_ENV === 'production',
+          });
+        }
+      } else {
+        // Upload initial local settings if any
+        const settingsPayload: Record<string, any> = {
+          user_email: cleanEmail,
+          updated_at: new Date().toISOString(),
+        };
+        if (localAi) settingsPayload.preferred_ai = localAi;
+        if (localTheme) settingsPayload.theme = localTheme;
+
+        await supabase
+          .from('user_settings')
+          .upsert(settingsPayload, { onConflict: 'user_email' });
+      }
+    } catch (syncErr) {
+      console.error('OTP verify: Account sync error:', syncErr);
+    }
 
     return response;
   } catch (err: any) {

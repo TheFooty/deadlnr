@@ -16,7 +16,8 @@ export async function GET(request: NextRequest) {
     const cookieTheme = cookieStore.get('deadlnr_theme')?.value as ThemeId;
     const cookieDemo = cookieStore.get('deadlnr_show_demo_data')?.value === 'true';
     const cookieFeedUrlEnc = cookieStore.get('deadlnr_feed_url')?.value;
-    const userEmail = cookieStore.get('deadlnr_user_email')?.value || session?.user?.email;
+    const rawEmail = cookieStore.get('deadlnr_user_email')?.value || session?.user?.email;
+    const userEmail = rawEmail ? rawEmail.trim().toLowerCase() : null;
 
     let hasFeed = false;
     let decryptedCookieFeed = '';
@@ -49,14 +50,14 @@ export async function GET(request: NextRequest) {
       const { data } = await supabase
         .from('user_settings')
         .select('*')
-        .eq('user_email', userEmail)
+        .ilike('user_email', userEmail)
         .maybeSingle();
       dbSettings = data;
 
       const { data: cData } = await supabase
         .from('canvas_credentials')
         .select('*')
-        .eq('user_email', userEmail)
+        .ilike('user_email', userEmail)
         .maybeSingle();
       dbCreds = cData;
     }
@@ -94,7 +95,7 @@ export async function GET(request: NextRequest) {
     const selectedTheme = (dbSettings?.theme as ThemeId) || cookieTheme || 'default';
     const showDemoData = dbSettings?.show_demo_data ?? cookieDemo;
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       preferred_ai: selectedAi,
       theme: selectedTheme,
       show_demo_data: showDemoData,
@@ -104,6 +105,18 @@ export async function GET(request: NextRequest) {
       isGuest: false,
       userEmail: userEmail || session?.user?.email || null,
     });
+
+    // Cache to cookies if found in DB so this device immediately has local values
+    if (dbCreds?.encrypted_feed_url && !cookieFeedUrlEnc) {
+      response.cookies.set('deadlnr_feed_url', dbCreds.encrypted_feed_url, {
+        path: '/',
+        maxAge: 31536000,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+      });
+    }
+
+    return response;
   } catch (error: any) {
     console.error('Error in GET /api/settings:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -116,7 +129,8 @@ export async function POST(request: NextRequest) {
     const { data: { session } } = await supabase.auth.getSession();
     const cookieStore = await cookies();
     const userEmailCookie = cookieStore.get('deadlnr_user_email')?.value;
-    const userEmail = session?.user?.email || userEmailCookie;
+    const rawEmail = session?.user?.email || userEmailCookie;
+    const userEmail = rawEmail ? rawEmail.trim().toLowerCase() : null;
     const userId = session?.user?.id;
 
     const body = await request.json();

@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
     }
 
     let feedUrl = '';
+    let encryptedFeedFromDb = '';
 
     // 1. Try reading feed URL from cookie fallback first
     if (cookieFeedUrlEnc) {
@@ -36,19 +37,19 @@ export async function GET(request: NextRequest) {
 
     const supabase = await createClient();
     const { data: { session } } = await supabase.auth.getSession();
-    const userEmail = session?.user?.email || userEmailCookie;
+    const rawEmail = session?.user?.email || userEmailCookie;
+    const userEmail = rawEmail ? rawEmail.trim().toLowerCase() : null;
     const userId = session?.user?.id;
 
     let userWantsDemo = showDemoData;
 
     // 2. Fetch encrypted feed URL from Supabase (by user_email or user_id)
     if (userEmail || userId) {
-      // Check user_settings
       if (userEmail) {
         const { data: settings } = await supabase
           .from('user_settings')
           .select('show_demo_data')
-          .eq('user_email', userEmail)
+          .ilike('user_email', userEmail)
           .maybeSingle();
 
         if (settings?.show_demo_data !== undefined) {
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest) {
         const { data: creds } = await supabase
           .from('canvas_credentials')
           .select('encrypted_feed_url')
-          .eq('user_email', userEmail)
+          .ilike('user_email', userEmail)
           .maybeSingle();
 
         if (creds?.encrypted_feed_url) {
@@ -66,6 +67,7 @@ export async function GET(request: NextRequest) {
             const dbDecrypted = decryptText(creds.encrypted_feed_url);
             if (dbDecrypted.startsWith('http')) {
               feedUrl = dbDecrypted;
+              encryptedFeedFromDb = creds.encrypted_feed_url;
             }
           } catch {}
         }
@@ -93,6 +95,7 @@ export async function GET(request: NextRequest) {
             const dbDecrypted = decryptText(creds.encrypted_feed_url);
             if (dbDecrypted.startsWith('http')) {
               feedUrl = dbDecrypted;
+              encryptedFeedFromDb = creds.encrypted_feed_url;
             }
           } catch {}
         }
@@ -142,10 +145,22 @@ export async function GET(request: NextRequest) {
     const icsText = await response.text();
     const assignments = await parseCanvasICalFeed(icsText);
 
-    return NextResponse.json({
+    const jsonRes = NextResponse.json({
       assignments,
       isMock: false,
     });
+
+    // If feed was fetched from DB, cache to cookie for fast subsequent requests on this device
+    if (encryptedFeedFromDb && !cookieFeedUrlEnc) {
+      jsonRes.cookies.set('deadlnr_feed_url', encryptedFeedFromDb, {
+        path: '/',
+        maxAge: 31536000,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+      });
+    }
+
+    return jsonRes;
   } catch (error: any) {
     console.error('Error fetching calendar feed:', error);
     return NextResponse.json({ assignments: [], isMock: false, error: error.message }, { status: 500 });
