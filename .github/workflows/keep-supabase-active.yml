@@ -1,0 +1,21 @@
+name: Keep Supabase Active (Anti-Hibernation)
+
+on:
+  schedule:
+    # Runs at 12:00 UTC every Monday and Thursday (twice a week)
+    - cron: '0 12 * * 1,4'
+  workflow_dispatch: # Allows manual trigger from GitHub Actions tab
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send keep-alive query to Supabase REST API
+        run: |
+          curl -i -X GET "https://ttannnhcvoybjuqbdinn.supabase.co/rest/v1/user_settings?select=id&limit=1" \
+            -H "apikey: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR0YW5ubmhjdm95Ymp1cWJkaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3MTI4ODYsImV4cCI6MjEwMTI4ODg4Nn0.2jw2eoC_ga3I58ZA_jAkQAeBIQqbztQpT3SGLrZLOmc' }}" \
+            -H "Authorization: Bearer ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR0YW5ubmhjdm95Ymp1cWJkaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3MTI4ODYsImV4cCI6MjEwMTI4ODg4Nn0.2jw2eoC_ga3I58ZA_jAkQAeBIQqbztQpT3SGLrZLOmc' }}"
+      
+      - name: Ping Deadlnr Production Cron Endpoint
+        run: |
+          curl -i -X GET "https://deadlnr-v.vercel.app/api/cron/notifications"
