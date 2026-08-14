@@ -195,47 +195,96 @@ export async function POST(request: NextRequest) {
     if (userEmail || userId) {
       const cleanEmail = userEmail ? userEmail.trim().toLowerCase() : null;
 
-      // 1. Save user_settings
+      // 1. Resilient save for user_settings
       const userSettingsPayload: Record<string, any> = {
         updated_at: new Date().toISOString(),
       };
-      if (cleanEmail) userSettingsPayload.user_email = cleanEmail;
-      if (userId) userSettingsPayload.user_id = userId;
       if (preferred_ai) userSettingsPayload.preferred_ai = preferred_ai;
       if (theme) userSettingsPayload.theme = theme;
       if (typeof show_demo_data === 'boolean') userSettingsPayload.show_demo_data = show_demo_data;
       if (Array.isArray(custom_assignments)) userSettingsPayload.custom_assignments = custom_assignments;
 
       if (cleanEmail) {
-        await supabase
+        // Try update first
+        const { data: existingSettings } = await supabase
           .from('user_settings')
-          .upsert(userSettingsPayload, { onConflict: 'user_email' });
+          .select('user_email')
+          .ilike('user_email', cleanEmail)
+          .maybeSingle();
+
+        if (existingSettings) {
+          await supabase
+            .from('user_settings')
+            .update(userSettingsPayload)
+            .ilike('user_email', cleanEmail);
+        } else {
+          await supabase
+            .from('user_settings')
+            .insert({ ...userSettingsPayload, user_email: cleanEmail });
+        }
       } else if (userId) {
-        await supabase
+        const { data: existingSettings } = await supabase
           .from('user_settings')
-          .upsert(userSettingsPayload, { onConflict: 'user_id' });
+          .select('user_id')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (existingSettings) {
+          await supabase
+            .from('user_settings')
+            .update(userSettingsPayload)
+            .eq('user_id', userId);
+        } else {
+          await supabase
+            .from('user_settings')
+            .insert({ ...userSettingsPayload, user_id: userId });
+        }
       }
 
-      // 2. Save encrypted feed URL to canvas_credentials
+      // 2. Resilient save for canvas_credentials
       if (trimmedUrl) {
         const encryptedFeedUrl = encryptText(trimmedUrl);
         const credsPayload: Record<string, any> = {
           encrypted_feed_url: encryptedFeedUrl,
           updated_at: new Date().toISOString(),
         };
-        if (cleanEmail) credsPayload.user_email = cleanEmail;
-        if (userId) credsPayload.user_id = userId;
 
         if (cleanEmail) {
-          const { error: credErr } = await supabase
+          const { data: existingCreds } = await supabase
             .from('canvas_credentials')
-            .upsert(credsPayload, { onConflict: 'user_email' });
-          if (credErr) console.error('Supabase canvas_credentials upsert error (email):', credErr);
+            .select('user_email')
+            .ilike('user_email', cleanEmail)
+            .maybeSingle();
+
+          if (existingCreds) {
+            const { error: updErr } = await supabase
+              .from('canvas_credentials')
+              .update(credsPayload)
+              .ilike('user_email', cleanEmail);
+            if (updErr) console.error('Error updating canvas_credentials:', updErr);
+          } else {
+            const { error: insErr } = await supabase
+              .from('canvas_credentials')
+              .insert({ ...credsPayload, user_email: cleanEmail });
+            if (insErr) console.error('Error inserting canvas_credentials:', insErr);
+          }
         } else if (userId) {
-          const { error: credErr } = await supabase
+          const { data: existingCreds } = await supabase
             .from('canvas_credentials')
-            .upsert(credsPayload, { onConflict: 'user_id' });
-          if (credErr) console.error('Supabase canvas_credentials upsert error (userId):', credErr);
+            .select('user_id')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+          if (existingCreds) {
+            await supabase
+              .from('canvas_credentials')
+              .update(credsPayload)
+              .eq('user_id', userId);
+          } else {
+            await supabase
+              .from('canvas_credentials')
+              .insert({ ...credsPayload, user_id: userId });
+          }
         }
       }
     }

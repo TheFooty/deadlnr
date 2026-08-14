@@ -91,17 +91,30 @@ export async function POST(request: NextRequest) {
           secure: process.env.NODE_ENV === 'production',
         });
       } else if (localFeedEnc) {
-        // Feed exists locally -> Upload to DB for this account!
-        await supabase
+        // Feed exists locally -> Resiliently save to DB for this account!
+        const { data: existing } = await supabase
           .from('canvas_credentials')
-          .upsert(
-            {
+          .select('user_email')
+          .ilike('user_email', cleanEmail)
+          .maybeSingle();
+
+        if (existing) {
+          await supabase
+            .from('canvas_credentials')
+            .update({
+              encrypted_feed_url: localFeedEnc,
+              updated_at: new Date().toISOString(),
+            })
+            .ilike('user_email', cleanEmail);
+        } else {
+          await supabase
+            .from('canvas_credentials')
+            .insert({
               user_email: cleanEmail,
               encrypted_feed_url: localFeedEnc,
               updated_at: new Date().toISOString(),
-            },
-            { onConflict: 'user_email' }
-          );
+            });
+        }
       }
 
       // 2. Check existing DB settings for this email
@@ -129,7 +142,7 @@ export async function POST(request: NextRequest) {
           });
         }
       } else {
-        // Upload initial local settings if any
+        // Save initial local settings if any
         const settingsPayload: Record<string, any> = {
           user_email: cleanEmail,
           updated_at: new Date().toISOString(),
@@ -137,9 +150,22 @@ export async function POST(request: NextRequest) {
         if (localAi) settingsPayload.preferred_ai = localAi;
         if (localTheme) settingsPayload.theme = localTheme;
 
-        await supabase
+        const { data: existingS } = await supabase
           .from('user_settings')
-          .upsert(settingsPayload, { onConflict: 'user_email' });
+          .select('user_email')
+          .ilike('user_email', cleanEmail)
+          .maybeSingle();
+
+        if (existingS) {
+          await supabase
+            .from('user_settings')
+            .update(settingsPayload)
+            .ilike('user_email', cleanEmail);
+        } else {
+          await supabase
+            .from('user_settings')
+            .insert(settingsPayload);
+        }
       }
     } catch (syncErr) {
       console.error('OTP verify: Account sync error:', syncErr);
