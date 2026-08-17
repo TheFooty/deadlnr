@@ -24,6 +24,8 @@ export async function GET(request: NextRequest) {
 
     let feedUrl = '';
     let encryptedFeedFromDb = '';
+    let encryptedApiTokenDb = '';
+    let canvasDomainDb = '';
 
     // 1. Try reading feed URL from cookie fallback first
     if (cookieFeedUrlEnc) {
@@ -68,7 +70,7 @@ export async function GET(request: NextRequest) {
 
           const { data: creds } = await supabase
             .from('canvas_credentials')
-            .select('encrypted_feed_url')
+            .select('encrypted_feed_url, encrypted_api_token, canvas_domain')
             .ilike('user_email', userEmail)
             .maybeSingle();
 
@@ -80,6 +82,13 @@ export async function GET(request: NextRequest) {
                 encryptedFeedFromDb = creds.encrypted_feed_url;
               }
             } catch {}
+          }
+          
+          if (creds?.encrypted_api_token) {
+             encryptedApiTokenDb = creds.encrypted_api_token;
+          }
+          if (creds?.canvas_domain) {
+             canvasDomainDb = creds.canvas_domain;
           }
         }
 
@@ -96,7 +105,7 @@ export async function GET(request: NextRequest) {
 
           const { data: creds } = await supabase
             .from('canvas_credentials')
-            .select('encrypted_feed_url')
+            .select('encrypted_feed_url, encrypted_api_token, canvas_domain')
             .eq('user_id', userId)
             .maybeSingle();
 
@@ -108,6 +117,13 @@ export async function GET(request: NextRequest) {
                 encryptedFeedFromDb = creds.encrypted_feed_url;
               }
             } catch {}
+          }
+          
+          if (creds?.encrypted_api_token) {
+             encryptedApiTokenDb = creds.encrypted_api_token;
+          }
+          if (creds?.canvas_domain) {
+             canvasDomainDb = creds.canvas_domain;
           }
         }
       } catch (dbError) {
@@ -158,8 +174,80 @@ export async function GET(request: NextRequest) {
     const icsText = await response.text();
     const assignments = await parseCanvasICalFeed(icsText);
 
+    // Filter out submitted assignments
+    let filteredAssignments = assignments;
+    
+    let apiToken = '';
+    let canvasDomain = '';
+
+    const cookieApiTokenEnc = cookieStore.get('deadlnr_api_token')?.value;
+    const cookieCanvasDomain = cookieStore.get('deadlnr_canvas_domain')?.value;
+
+    if (cookieApiTokenEnc) {
+      try { apiToken = decryptText(cookieApiTokenEnc); } catch {}
+    } else if (encryptedApiTokenDb) {
+      try { apiToken = decryptText(encryptedApiTokenDb); } catch {}
+    }
+    
+    if (cookieCanvasDomain) {
+      canvasDomain = cookieCanvasDomain;
+    } else if (canvasDomainDb) {
+      canvasDomain = canvasDomainDb;
+    }
+
+    if (apiToken && canvasDomain) {
+      try {
+        const todoRes = await fetch(`https://${canvasDomain}/api/v1/users/self/todo?per_page=100`, {
+          headers: {
+            'Authorization': `Bearer ${apiToken}`,
+            'Accept': 'application/json',
+          },
+          cache: 'no-store',
+        });
+
+        if (todoRes.ok) {
+          const todoItems = await todoRes.json();
+          const unsubmittedUrls = new Set<string>();
+          const unsubmittedIds = new Set<string>();
+          
+          for (const item of todoItems) {
+            if (item.assignment) {
+              if (item.assignment.html_url) {
+                unsubmittedUrls.add(item.assignment.html_url);
+              }
+              if (item.assignment.id) {
+                unsubmittedIds.add(String(item.assignment.id));
+              }
+            }
+          }
+
+          filteredAssignments = assignments.filter(a => {
+            if (!a.canvasUrl || !a.canvasUrl.includes('/courses/')) {
+              return true; 
+            }
+            
+            const assignmentIdMatch = a.canvasUrl.match(/\/assignments\/(\d+)/);
+            if (assignmentIdMatch) {
+              const assignmentId = assignmentIdMatch[1];
+              if (unsubmittedIds.has(assignmentId)) {
+                return true; 
+              }
+            }
+            
+            if (unsubmittedUrls.has(a.canvasUrl)) {
+              return true;
+            }
+            
+            return false;
+          });
+        }
+      } catch (apiErr) {
+        console.error('Canvas API check failed, showing all assignments:', apiErr);
+      }
+    }
+
     const jsonRes = NextResponse.json({
-      assignments,
+      assignments: filteredAssignments,
       isMock: false,
     });
 

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { PreferredAI, AI_PROVIDERS, ThemeId, APP_THEMES } from '@/lib/types';
 import { useTheme } from '@/components/ThemeProvider';
-import { Lock, Check, HelpCircle, ArrowLeft, Loader2, Palette, Sparkles, Layers, UserCheck, LogIn } from 'lucide-react';
+import { Lock, Check, HelpCircle, ArrowLeft, Loader2, Palette, Sparkles, Layers, UserCheck, LogIn, Key, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
 
 
@@ -13,6 +13,9 @@ export default function SettingsPage() {
   const [preferredAi, setPreferredAi] = useState<PreferredAI>('gemini');
   const [showDemoData, setShowDemoData] = useState<boolean>(false); // OFF by default
   const [hasFeedUrl, setHasFeedUrl] = useState(false);
+  const [apiToken, setApiToken] = useState('');
+  const [hasApiToken, setHasApiToken] = useState(false);
+  const [showApiToken, setShowApiToken] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isGuest, setIsGuest] = useState<boolean>(true);
   const [loading, setLoading] = useState(true);
@@ -64,6 +67,8 @@ export default function SettingsPage() {
           }
           if (data.has_feed_url) setHasFeedUrl(true);
           if (data.feed_url) setFeedUrl(data.feed_url);
+          if (data.has_api_token) setHasApiToken(true);
+          if (data.api_token) setApiToken(data.api_token);
         }
       } catch (err) {
         console.error('Failed to load settings:', err);
@@ -131,6 +136,7 @@ export default function SettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           feed_url: feedUrl.trim() || undefined,
+          api_token: apiToken.trim() || undefined,
           preferred_ai: preferredAi,
           theme,
           show_demo_data: showDemoData,
@@ -387,24 +393,70 @@ export default function SettingsPage() {
                 />
               </div>
 
-              {/* Step-by-Step Instructions */}
-              <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-4 text-xs text-slate-300 space-y-2">
-                <div className="flex items-center gap-2 text-slate-200 font-bold">
-                  <HelpCircle className="h-4 w-4 text-[#FF3B00]" />
-                  <span>How to get your Calendar Feed URL:</span>
+              <div>
+                <label className="block text-sm font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
+                  <span>Canvas API Token <span className="text-slate-500 font-normal">(Optional, for auto-hiding submitted)</span></span>
+                  {hasApiToken && (
+                    <span className="text-xs font-semibold text-[#00E599] flex items-center gap-1">
+                      <Check className="h-3 w-3" />
+                      Saved
+                    </span>
+                  )}
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Key className="h-4 w-4 text-slate-500" />
+                  </div>
+                  <input
+                    type={showApiToken ? "text" : "password"}
+                    placeholder="7~XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+                    value={apiToken}
+                    onChange={(e) => setApiToken(e.target.value)}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 pl-10 pr-10 py-3 text-sm text-white placeholder-slate-600 focus:border-[#FF3B00] focus:outline-none focus:ring-1 focus:ring-[#FF3B00] font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowApiToken(!showApiToken)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white"
+                  >
+                    {showApiToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
-                <ol className="list-decimal list-inside space-y-1.5 text-slate-400 pl-1">
-                  <li>Log into your school Canvas LMS account.</li>
-                  <li>
-                    Click <strong className="text-slate-200">Calendar</strong> in the left sidebar.
-                  </li>
-                  <li>
-                    Click <strong className="text-slate-200">&quot;Calendar Feed&quot;</strong> at the bottom right/left of the page.
-                  </li>
-                  <li>
-                    Copy the entire <code className="text-[#FF3B00] bg-slate-900 px-1 rounded">.ics</code> feed URL and paste it above!
-                  </li>
-                </ol>
+              </div>
+
+              {/* Step-by-Step Instructions */}
+              <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-4 text-xs text-slate-300 space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-slate-200 font-bold">
+                    <HelpCircle className="h-4 w-4 text-[#FF3B00]" />
+                    <span>How to get your Calendar Feed URL:</span>
+                  </div>
+                  <ol className="list-decimal list-inside space-y-1.5 text-slate-400 pl-1">
+                    <li>Log into your school Canvas LMS account.</li>
+                    <li>
+                      Click <strong className="text-slate-200">Calendar</strong> in the left sidebar.
+                    </li>
+                    <li>
+                      Click <strong className="text-slate-200">&quot;Calendar Feed&quot;</strong> at the bottom right/left of the page.
+                    </li>
+                    <li>
+                      Copy the entire <code className="text-[#FF3B00] bg-slate-900 px-1 rounded">.ics</code> feed URL and paste it above!
+                    </li>
+                  </ol>
+                </div>
+                
+                <div className="space-y-2 pt-3 border-t border-slate-800/50">
+                  <div className="flex items-center gap-2 text-slate-200 font-bold">
+                    <HelpCircle className="h-4 w-4 text-[#FF3B00]" />
+                    <span>How to get your Canvas API Token:</span>
+                  </div>
+                  <ol className="list-decimal list-inside space-y-1.5 text-slate-400 pl-1">
+                    <li>Log into Canvas and click <strong className="text-slate-200">Account</strong> → <strong className="text-slate-200">Settings</strong>.</li>
+                    <li>Scroll down to <strong className="text-slate-200">&quot;Approved Integrations&quot;</strong> and click <strong className="text-slate-200">&quot;+ New Access Token&quot;</strong>.</li>
+                    <li>Give it a name (e.g. "Deadlnr"), leave expiry blank, and click Generate.</li>
+                    <li>Copy the long token and paste it above to automatically hide submitted assignments!</li>
+                  </ol>
+                </div>
               </div>
 
               {/* Privacy Note */}

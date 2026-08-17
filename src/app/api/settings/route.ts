@@ -106,6 +106,15 @@ export async function GET(request: NextRequest) {
       } catch {}
     }
 
+    let hasApiToken = false;
+    let apiToken = '';
+    if (dbCreds?.encrypted_api_token) {
+      try {
+        apiToken = decryptText(dbCreds.encrypted_api_token);
+        hasApiToken = true;
+      } catch {}
+    }
+
     const selectedAi = (dbSettings?.preferred_ai as PreferredAI) || cookieAi || 'gemini';
     const selectedTheme = (dbSettings?.theme as ThemeId) || cookieTheme || 'default';
     const showDemoData = dbSettings?.show_demo_data ?? cookieDemo;
@@ -117,6 +126,8 @@ export async function GET(request: NextRequest) {
       custom_assignments: dbSettings?.custom_assignments || [],
       has_feed_url: hasFeed,
       feed_url: dbFeedUrl || decryptedCookieFeed || undefined,
+      has_api_token: hasApiToken,
+      api_token: apiToken || undefined,
       isGuest: false,
       userEmail: userEmail || session?.user?.email || null,
     });
@@ -158,7 +169,7 @@ export async function POST(request: NextRequest) {
     const userId = session?.user?.id;
 
     const body = await request.json();
-    const { feed_url, preferred_ai, theme, show_demo_data, custom_assignments } = body;
+    const { feed_url, api_token, preferred_ai, theme, show_demo_data, custom_assignments } = body;
 
     const response = NextResponse.json({
       success: true,
@@ -215,6 +226,26 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    if (api_token) {
+      const encryptedToken = encryptText(api_token);
+      let domain = '';
+      try { 
+        // Try to get domain from either feed_url or trimmedUrl
+        domain = new URL(trimmedUrl || feed_url || '').hostname; 
+      } catch {}
+      
+      response.cookies.set('deadlnr_api_token', encryptedToken, {
+        path: '/',
+        maxAge: maxCookieAge,
+      });
+      if (domain) {
+        response.cookies.set('deadlnr_canvas_domain', domain, {
+          path: '/',
+          maxAge: maxCookieAge,
+        });
+      }
+    }
+
     // If logged in via email or Supabase session, try to save to Supabase DB for cross-device sync
     if ((userEmail || userId) && supabase) {
       try {
@@ -266,12 +297,19 @@ export async function POST(request: NextRequest) {
         }
 
         // 2. Resilient save for canvas_credentials
-        if (trimmedUrl) {
-          const encryptedFeedUrl = encryptText(trimmedUrl);
+        if (trimmedUrl || api_token) {
           const credsPayload: Record<string, any> = {
-            encrypted_feed_url: encryptedFeedUrl,
             updated_at: new Date().toISOString(),
           };
+          if (trimmedUrl) {
+            credsPayload.encrypted_feed_url = encryptText(trimmedUrl);
+          }
+          if (api_token) {
+            credsPayload.encrypted_api_token = encryptText(api_token);
+            try {
+              credsPayload.canvas_domain = new URL(trimmedUrl || feed_url || '').hostname;
+            } catch {}
+          }
 
           if (cleanEmail) {
             const { data: existingCreds } = await supabase
