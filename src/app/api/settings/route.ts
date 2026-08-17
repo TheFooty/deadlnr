@@ -9,8 +9,19 @@ export const revalidate = 0;
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { session } } = await supabase.auth.getSession();
+    let dbSettings: any = null;
+    let dbCreds: any = null;
+    let session: any = null;
+    let supabase: any = null;
+
+    try {
+      supabase = await createClient();
+      const { data } = await supabase.auth.getSession();
+      session = data.session;
+    } catch (e) {
+      console.error('Supabase client/session error:', e);
+    }
+
     const cookieStore = await cookies();
     const cookieAi = cookieStore.get('deadlnr_preferred_ai')?.value as PreferredAI;
     const cookieTheme = cookieStore.get('deadlnr_theme')?.value as ThemeId;
@@ -42,42 +53,46 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = session?.user?.id;
-    let dbSettings: any = null;
-    let dbCreds: any = null;
 
     // 1. Fetch settings from Supabase (by user_email or user_id)
-    if (userEmail) {
-      const { data } = await supabase
-        .from('user_settings')
-        .select('*')
-        .ilike('user_email', userEmail)
-        .maybeSingle();
-      dbSettings = data;
+    if (supabase) {
+      try {
+        if (userEmail) {
+          const { data } = await supabase
+            .from('user_settings')
+            .select('*')
+            .ilike('user_email', userEmail)
+            .maybeSingle();
+          dbSettings = data;
 
-      const { data: cData } = await supabase
-        .from('canvas_credentials')
-        .select('*')
-        .ilike('user_email', userEmail)
-        .maybeSingle();
-      dbCreds = cData;
-    }
+          const { data: cData } = await supabase
+            .from('canvas_credentials')
+            .select('*')
+            .ilike('user_email', userEmail)
+            .maybeSingle();
+          dbCreds = cData;
+        }
 
-    if (!dbSettings && userId) {
-      const { data } = await supabase
-        .from('user_settings')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
-      dbSettings = data;
-    }
+        if (!dbSettings && userId) {
+          const { data } = await supabase
+            .from('user_settings')
+            .select('*')
+            .eq('user_id', userId)
+            .maybeSingle();
+          dbSettings = data;
+        }
 
-    if (!dbCreds && userId) {
-      const { data: cData } = await supabase
-        .from('canvas_credentials')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
-      dbCreds = cData;
+        if (!dbCreds && userId) {
+          const { data: cData } = await supabase
+            .from('canvas_credentials')
+            .select('*')
+            .eq('user_id', userId)
+            .maybeSingle();
+          dbCreds = cData;
+        }
+      } catch (dbErr) {
+        console.error('Supabase DB fetch failed in GET /settings:', dbErr);
+      }
     }
 
     let dbFeedUrl = '';
@@ -125,8 +140,17 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { session } } = await supabase.auth.getSession();
+    let session: any = null;
+    let supabase: any = null;
+
+    try {
+      supabase = await createClient();
+      const { data } = await supabase.auth.getSession();
+      session = data.session;
+    } catch (e) {
+      console.error('Supabase client/session error in POST:', e);
+    }
+
     const cookieStore = await cookies();
     const userEmailCookie = cookieStore.get('deadlnr_user_email')?.value;
     const rawEmail = session?.user?.email || userEmailCookie;
@@ -191,101 +215,104 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // If logged in via email or Supabase session, save to Supabase DB for cross-device sync
-    if (userEmail || userId) {
-      const cleanEmail = userEmail ? userEmail.trim().toLowerCase() : null;
+    // If logged in via email or Supabase session, try to save to Supabase DB for cross-device sync
+    if ((userEmail || userId) && supabase) {
+      try {
+        const cleanEmail = userEmail ? userEmail.trim().toLowerCase() : null;
 
-      // 1. Resilient save for user_settings
-      const userSettingsPayload: Record<string, any> = {
-        updated_at: new Date().toISOString(),
-      };
-      if (preferred_ai) userSettingsPayload.preferred_ai = preferred_ai;
-      if (theme) userSettingsPayload.theme = theme;
-      if (typeof show_demo_data === 'boolean') userSettingsPayload.show_demo_data = show_demo_data;
-      if (Array.isArray(custom_assignments)) userSettingsPayload.custom_assignments = custom_assignments;
-
-      if (cleanEmail) {
-        // Try update first
-        const { data: existingSettings } = await supabase
-          .from('user_settings')
-          .select('user_email')
-          .ilike('user_email', cleanEmail)
-          .maybeSingle();
-
-        if (existingSettings) {
-          await supabase
-            .from('user_settings')
-            .update(userSettingsPayload)
-            .ilike('user_email', cleanEmail);
-        } else {
-          await supabase
-            .from('user_settings')
-            .insert({ ...userSettingsPayload, user_email: cleanEmail });
-        }
-      } else if (userId) {
-        const { data: existingSettings } = await supabase
-          .from('user_settings')
-          .select('user_id')
-          .eq('user_id', userId)
-          .maybeSingle();
-
-        if (existingSettings) {
-          await supabase
-            .from('user_settings')
-            .update(userSettingsPayload)
-            .eq('user_id', userId);
-        } else {
-          await supabase
-            .from('user_settings')
-            .insert({ ...userSettingsPayload, user_id: userId });
-        }
-      }
-
-      // 2. Resilient save for canvas_credentials
-      if (trimmedUrl) {
-        const encryptedFeedUrl = encryptText(trimmedUrl);
-        const credsPayload: Record<string, any> = {
-          encrypted_feed_url: encryptedFeedUrl,
+        // 1. Resilient save for user_settings
+        const userSettingsPayload: Record<string, any> = {
           updated_at: new Date().toISOString(),
         };
+        if (preferred_ai) userSettingsPayload.preferred_ai = preferred_ai;
+        if (theme) userSettingsPayload.theme = theme;
+        if (typeof show_demo_data === 'boolean') userSettingsPayload.show_demo_data = show_demo_data;
+        if (Array.isArray(custom_assignments)) userSettingsPayload.custom_assignments = custom_assignments;
 
         if (cleanEmail) {
-          const { data: existingCreds } = await supabase
-            .from('canvas_credentials')
+          const { data: existingSettings } = await supabase
+            .from('user_settings')
             .select('user_email')
             .ilike('user_email', cleanEmail)
             .maybeSingle();
 
-          if (existingCreds) {
-            const { error: updErr } = await supabase
-              .from('canvas_credentials')
-              .update(credsPayload)
+          if (existingSettings) {
+            await supabase
+              .from('user_settings')
+              .update(userSettingsPayload)
               .ilike('user_email', cleanEmail);
-            if (updErr) console.error('Error updating canvas_credentials:', updErr);
           } else {
-            const { error: insErr } = await supabase
-              .from('canvas_credentials')
-              .insert({ ...credsPayload, user_email: cleanEmail });
-            if (insErr) console.error('Error inserting canvas_credentials:', insErr);
+            await supabase
+              .from('user_settings')
+              .insert({ ...userSettingsPayload, user_email: cleanEmail });
           }
         } else if (userId) {
-          const { data: existingCreds } = await supabase
-            .from('canvas_credentials')
+          const { data: existingSettings } = await supabase
+            .from('user_settings')
             .select('user_id')
             .eq('user_id', userId)
             .maybeSingle();
 
-          if (existingCreds) {
+          if (existingSettings) {
             await supabase
-              .from('canvas_credentials')
-              .update(credsPayload)
+              .from('user_settings')
+              .update(userSettingsPayload)
               .eq('user_id', userId);
           } else {
             await supabase
-              .from('canvas_credentials')
-              .insert({ ...credsPayload, user_id: userId });
+              .from('user_settings')
+              .insert({ ...userSettingsPayload, user_id: userId });
           }
         }
+
+        // 2. Resilient save for canvas_credentials
+        if (trimmedUrl) {
+          const encryptedFeedUrl = encryptText(trimmedUrl);
+          const credsPayload: Record<string, any> = {
+            encrypted_feed_url: encryptedFeedUrl,
+            updated_at: new Date().toISOString(),
+          };
+
+          if (cleanEmail) {
+            const { data: existingCreds } = await supabase
+              .from('canvas_credentials')
+              .select('user_email')
+              .ilike('user_email', cleanEmail)
+              .maybeSingle();
+
+            if (existingCreds) {
+              const { error: updErr } = await supabase
+                .from('canvas_credentials')
+                .update(credsPayload)
+                .ilike('user_email', cleanEmail);
+              if (updErr) console.error('Error updating canvas_credentials:', updErr);
+            } else {
+              const { error: insErr } = await supabase
+                .from('canvas_credentials')
+                .insert({ ...credsPayload, user_email: cleanEmail });
+              if (insErr) console.error('Error inserting canvas_credentials:', insErr);
+            }
+          } else if (userId) {
+            const { data: existingCreds } = await supabase
+              .from('canvas_credentials')
+              .select('user_id')
+              .eq('user_id', userId)
+              .maybeSingle();
+
+            if (existingCreds) {
+              await supabase
+                .from('canvas_credentials')
+                .update(credsPayload)
+                .eq('user_id', userId);
+            } else {
+              await supabase
+                .from('canvas_credentials')
+                .insert({ ...credsPayload, user_id: userId });
+            }
+          }
+        }
+      } catch (dbError) {
+        console.error('Supabase DB save failed, but cookies were set:', dbError);
       }
     }
 

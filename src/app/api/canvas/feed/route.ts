@@ -35,8 +35,17 @@ export async function GET(request: NextRequest) {
       } catch {}
     }
 
-    const supabase = await createClient();
-    const { data: { session } } = await supabase.auth.getSession();
+    let session: any = null;
+    let supabase: any = null;
+
+    try {
+      supabase = await createClient();
+      const { data } = await supabase.auth.getSession();
+      session = data.session;
+    } catch (e) {
+      console.error('Supabase client/session error:', e);
+    }
+
     const rawEmail = session?.user?.email || userEmailCookie;
     const userEmail = rawEmail ? rawEmail.trim().toLowerCase() : null;
     const userId = session?.user?.id;
@@ -44,61 +53,65 @@ export async function GET(request: NextRequest) {
     let userWantsDemo = showDemoData;
 
     // 2. Fetch encrypted feed URL from Supabase (by user_email or user_id)
-    if (userEmail || userId) {
-      if (userEmail) {
-        const { data: settings } = await supabase
-          .from('user_settings')
-          .select('show_demo_data')
-          .ilike('user_email', userEmail)
-          .maybeSingle();
+    if ((userEmail || userId) && supabase) {
+      try {
+        if (userEmail) {
+          const { data: settings } = await supabase
+            .from('user_settings')
+            .select('show_demo_data')
+            .ilike('user_email', userEmail)
+            .maybeSingle();
 
-        if (settings?.show_demo_data !== undefined) {
-          userWantsDemo = !!settings.show_demo_data;
+          if (settings?.show_demo_data !== undefined) {
+            userWantsDemo = !!settings.show_demo_data;
+          }
+
+          const { data: creds } = await supabase
+            .from('canvas_credentials')
+            .select('encrypted_feed_url')
+            .ilike('user_email', userEmail)
+            .maybeSingle();
+
+          if (creds?.encrypted_feed_url) {
+            try {
+              const dbDecrypted = decryptText(creds.encrypted_feed_url);
+              if (dbDecrypted.startsWith('http')) {
+                feedUrl = dbDecrypted;
+                encryptedFeedFromDb = creds.encrypted_feed_url;
+              }
+            } catch {}
+          }
         }
 
-        const { data: creds } = await supabase
-          .from('canvas_credentials')
-          .select('encrypted_feed_url')
-          .ilike('user_email', userEmail)
-          .maybeSingle();
+        if (!feedUrl && userId) {
+          const { data: settings } = await supabase
+            .from('user_settings')
+            .select('show_demo_data')
+            .eq('user_id', userId)
+            .maybeSingle();
 
-        if (creds?.encrypted_feed_url) {
-          try {
-            const dbDecrypted = decryptText(creds.encrypted_feed_url);
-            if (dbDecrypted.startsWith('http')) {
-              feedUrl = dbDecrypted;
-              encryptedFeedFromDb = creds.encrypted_feed_url;
-            }
-          } catch {}
+          if (settings?.show_demo_data !== undefined) {
+            userWantsDemo = !!settings.show_demo_data;
+          }
+
+          const { data: creds } = await supabase
+            .from('canvas_credentials')
+            .select('encrypted_feed_url')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+          if (creds?.encrypted_feed_url) {
+            try {
+              const dbDecrypted = decryptText(creds.encrypted_feed_url);
+              if (dbDecrypted.startsWith('http')) {
+                feedUrl = dbDecrypted;
+                encryptedFeedFromDb = creds.encrypted_feed_url;
+              }
+            } catch {}
+          }
         }
-      }
-
-      if (!feedUrl && userId) {
-        const { data: settings } = await supabase
-          .from('user_settings')
-          .select('show_demo_data')
-          .eq('user_id', userId)
-          .maybeSingle();
-
-        if (settings?.show_demo_data !== undefined) {
-          userWantsDemo = !!settings.show_demo_data;
-        }
-
-        const { data: creds } = await supabase
-          .from('canvas_credentials')
-          .select('encrypted_feed_url')
-          .eq('user_id', userId)
-          .maybeSingle();
-
-        if (creds?.encrypted_feed_url) {
-          try {
-            const dbDecrypted = decryptText(creds.encrypted_feed_url);
-            if (dbDecrypted.startsWith('http')) {
-              feedUrl = dbDecrypted;
-              encryptedFeedFromDb = creds.encrypted_feed_url;
-            }
-          } catch {}
-        }
+      } catch (dbError) {
+        console.error('Supabase DB fetch failed, falling back to cookies:', dbError);
       }
     }
 
