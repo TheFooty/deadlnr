@@ -218,8 +218,10 @@ export async function GET(request: NextRequest) {
           const courses = await coursesRes.json();
           const submittedIds = new Set<string>();
           const submittedTitles = new Set<string>();
+          const directUrlMapById = new Map<string, string>();
+          const directUrlMapByTitle = new Map<string, string>();
 
-          // Step 2: For each course, fetch assignments with submission status
+          // Step 2: For each course, fetch assignments with submission status and direct URLs
           const coursePromises = courses.map(async (course: any) => {
             try {
               const assignRes = await fetch(
@@ -236,6 +238,14 @@ export async function GET(request: NextRequest) {
               if (assignRes.ok) {
                 const canvasAssignments = await assignRes.json();
                 for (const ca of canvasAssignments) {
+                  // Track direct assignment URL
+                  if (ca.html_url) {
+                    directUrlMapById.set(String(ca.id), ca.html_url);
+                    if (ca.name) {
+                      directUrlMapByTitle.set(ca.name.trim().toLowerCase(), ca.html_url);
+                    }
+                  }
+
                   const state = ca.submission?.workflow_state;
                   if (state === 'submitted' || state === 'graded') {
                     submittedIds.add(String(ca.id));
@@ -250,7 +260,7 @@ export async function GET(request: NextRequest) {
 
           await Promise.all(coursePromises);
 
-          console.log(`[Canvas API] Found ${submittedIds.size} submitted assignments across ${courses.length} courses`);
+          console.log(`[Canvas API] Found ${submittedIds.size} submitted assignments across ${courses.length} courses (${directUrlMapById.size} direct URLs indexed)`);
 
           // Step 3: Filter out submitted assignments
           if (submittedIds.size > 0 || submittedTitles.size > 0) {
@@ -292,6 +302,47 @@ export async function GET(request: NextRequest) {
               return true; // Keep it
             });
           }
+
+          // Step 4: Upgrade remaining assignments' calendar links with direct assignment URLs
+          filteredAssignments = filteredAssignments.map(a => {
+            let directUrl = '';
+
+            // Check match by assignment ID from current URL
+            const urlIdMatch = a.canvasUrl?.match(/\/assignments\/(\d+)/);
+            if (urlIdMatch && directUrlMapById.has(urlIdMatch[1])) {
+              directUrl = directUrlMapById.get(urlIdMatch[1])!;
+            }
+
+            // Check match by assignment ID from iCal UID
+            if (!directUrl) {
+              const uidMatch = (a.uid || '').match(/event-assignment-(\d+)/i);
+              if (uidMatch && directUrlMapById.has(uidMatch[1])) {
+                directUrl = directUrlMapById.get(uidMatch[1])!;
+              }
+            }
+
+            // Check match by title
+            if (!directUrl) {
+              const icalTitle = a.title.trim().toLowerCase();
+              if (directUrlMapByTitle.has(icalTitle)) {
+                directUrl = directUrlMapByTitle.get(icalTitle)!;
+              } else {
+                for (const [titleKey, url] of directUrlMapByTitle.entries()) {
+                  if (icalTitle.includes(titleKey) || titleKey.includes(icalTitle)) {
+                    if (titleKey.length >= 8 || icalTitle.length >= 8) {
+                      directUrl = url;
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+
+            if (directUrl) {
+              return { ...a, canvasUrl: directUrl };
+            }
+            return a;
+          });
         } else {
           console.error(`[Canvas API] Failed to fetch courses: HTTP ${coursesRes.status}`);
         }

@@ -146,7 +146,13 @@ export function AssignmentCard({ assignment, isFrontCard = false }: AssignmentCa
             onClick={(e) => e.stopPropagation()}
             className="inline-flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors"
           >
-            <span>{assignment.canvasUrl.includes('kognity') ? 'Open in Kognity' : 'Open Link'}</span>
+            <span>
+              {assignment.canvasUrl.includes('kognity')
+                ? 'Open in Kognity'
+                : assignment.canvasUrl.includes('instructure') || assignment.canvasUrl.includes('canvas')
+                ? 'Open in Canvas'
+                : 'Open Link'}
+            </span>
             <ExternalLink className="h-3.5 w-3.5" />
           </a>
         ) : (
