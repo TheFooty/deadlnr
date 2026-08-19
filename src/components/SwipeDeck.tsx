@@ -200,6 +200,20 @@ export function SwipeDeck({
     setActiveDetailAssignment(selectedAssignment);
   };
 
+  // Quick X out / dismiss an assignment directly from Grid Overview
+  const handleQuickDismiss = (targetAssignment: CanvasAssignment) => {
+    triggerHaptic(15);
+    logSwipe(targetAssignment, 'left');
+    setHistoryCount((prev) => ({ ...prev, left: prev.left + 1 }));
+    setDeck((prev) => prev.filter((a) => a.id !== targetAssignment.id));
+    setToastMessage(`Dismissed "${targetAssignment.title}"`);
+    setToastSubtext('Removed from deck');
+    setTimeout(() => {
+      setToastMessage(null);
+      setToastSubtext(null);
+    }, 2500);
+  };
+
   // Handle "I've Done It!" Completion Button Click
   const handleMarkAsDone = (targetAssignment: CanvasAssignment) => {
     confetti({
@@ -373,7 +387,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
                     Deck Overview
                   </h2>
                   <p className="text-xs text-slate-400">
-                    {deck.length} card{deck.length === 1 ? '' : 's'} remaining • Click any card to focus
+                    {deck.length} card{deck.length === 1 ? '' : 's'} remaining • Click card to focus or ✕ to dismiss
                   </p>
                 </div>
               </div>
@@ -394,53 +408,73 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 w-full py-4">
-                  {deck.map((item, idx) => {
-                    const theme = getCourseTheme(item.course);
-                    return (
-                      <motion.div
-                        key={item.id}
-                        onClick={() => handleSelectFromOverview(item)}
-                        whileHover={{ scale: 1.02, y: -4 }}
-                        className={`cursor-pointer rounded-2xl border bg-[#111622] p-5 shadow-lg transition-all card-tactile group flex flex-col justify-between ${theme.border}`}
-                      >
-                        <div>
-                          <div className="flex items-center justify-between mb-3">
-                            <span className={`inline-flex items-center gap-1.5 text-xs font-mono font-bold px-2.5 py-1 rounded-full border ${theme.text} ${theme.bg} ${theme.border}`}>
-                              <span className={`h-2 w-2 rounded-full ${theme.dot}`} />
-                              {item.course}
-                            </span>
-                            <span className="text-xs text-slate-500 font-mono font-bold">#{idx + 1}</span>
-                          </div>
+                  <AnimatePresence mode="popLayout">
+                    {deck.map((item, idx) => {
+                      const theme = getCourseTheme(item.course);
+                      return (
+                        <motion.div
+                          key={item.id}
+                          layout
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.85, transition: { duration: 0.15 } }}
+                          onClick={() => handleSelectFromOverview(item)}
+                          whileHover={{ scale: 1.02, y: -4 }}
+                          className={`cursor-pointer rounded-2xl border bg-[#111622] p-5 shadow-lg transition-all card-tactile group flex flex-col justify-between ${theme.border} relative`}
+                        >
+                          <div>
+                            <div className="flex items-center justify-between mb-3 gap-2">
+                              <span className={`inline-flex items-center gap-1.5 text-xs font-mono font-bold px-2.5 py-1 rounded-full border ${theme.text} ${theme.bg} ${theme.border} truncate max-w-[65%]`}>
+                                <span className={`h-2 w-2 rounded-full shrink-0 ${theme.dot}`} />
+                                <span className="truncate">{item.course}</span>
+                              </span>
 
-                          <h4 className="text-white font-extrabold text-base font-display mb-2 group-hover:text-[#FF3B00] transition-colors leading-snug">
-                            {item.title}
-                          </h4>
-
-                          <p className="text-xs text-slate-400 line-clamp-3 leading-relaxed mb-4">
-                            {item.description || 'No detailed instructions provided in calendar feed.'}
-                          </p>
-                        </div>
-
-                        <div className="space-y-3 pt-3 border-t border-slate-800/80">
-                          {item.attachments && item.attachments.length > 0 && (
-                            <div className="inline-flex items-center gap-1 text-[11px] font-mono text-cyan-300 bg-cyan-500/10 px-2.5 py-1 rounded-xl border border-cyan-500/20">
-                              <Paperclip className="h-3 w-3 text-cyan-400" />
-                              <span>{item.attachments.length} attached file(s)</span>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="text-xs text-slate-500 font-mono font-bold">#{idx + 1}</span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleQuickDismiss(item);
+                                  }}
+                                  title="Dismiss / X out assignment"
+                                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-900/90 border border-slate-800 text-slate-400 hover:text-red-400 hover:bg-red-500/15 hover:border-red-500/30 active:scale-90 transition-all shadow-sm"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
                             </div>
-                          )}
 
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-slate-400 font-mono">
-                              Due: <strong className="text-slate-200">{new Date(item.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</strong>
-                            </span>
-                            <span className={`text-xs font-bold ${theme.text} group-hover:underline font-display`}>
-                              Focus Card →
-                            </span>
+                            <h4 className="text-white font-extrabold text-base font-display mb-2 group-hover:text-[#FF3B00] transition-colors leading-snug">
+                              {item.title}
+                            </h4>
+
+                            <p className="text-xs text-slate-400 line-clamp-3 leading-relaxed mb-4">
+                              {item.description || 'No detailed instructions provided in calendar feed.'}
+                            </p>
                           </div>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
+
+                          <div className="space-y-3 pt-3 border-t border-slate-800/80">
+                            {item.attachments && item.attachments.length > 0 && (
+                              <div className="inline-flex items-center gap-1 text-[11px] font-mono text-cyan-300 bg-cyan-500/10 px-2.5 py-1 rounded-xl border border-cyan-500/20">
+                                <Paperclip className="h-3 w-3 text-cyan-400" />
+                                <span>{item.attachments.length} attached file(s)</span>
+                              </div>
+                            )}
+
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-slate-400 font-mono">
+                                Due: <strong className="text-slate-200">{new Date(item.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</strong>
+                              </span>
+                              <span className={`text-xs font-bold ${theme.text} group-hover:underline font-display`}>
+                                Focus Card →
+                              </span>
+                            </div>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
                 </div>
               )}
             </div>
