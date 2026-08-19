@@ -173,6 +173,7 @@ export async function parseCanvasICalFeed(icsContent: string): Promise<CanvasAss
         dueDate,
         description,
         canvasUrl,
+        uid: item.uid || '',
       });
     }
 

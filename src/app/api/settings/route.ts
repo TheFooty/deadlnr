@@ -229,10 +229,18 @@ export async function POST(request: NextRequest) {
     if (api_token) {
       const encryptedToken = encryptText(api_token);
       let domain = '';
-      try { 
-        // Try to get domain from either feed_url or trimmedUrl
-        domain = new URL(trimmedUrl || feed_url || '').hostname; 
-      } catch {}
+      // Try to get domain from current request feed URL
+      const feedForDomain = trimmedUrl || feed_url || '';
+      if (feedForDomain) {
+        try { domain = new URL(feedForDomain).hostname; } catch {}
+      }
+      // Fall back to existing cookie feed URL
+      if (!domain) {
+        const existingFeedEnc = cookieStore.get('deadlnr_feed_url')?.value;
+        if (existingFeedEnc) {
+          try { domain = new URL(decryptText(existingFeedEnc)).hostname; } catch {}
+        }
+      }
       
       response.cookies.set('deadlnr_api_token', encryptedToken, {
         path: '/',
@@ -306,9 +314,18 @@ export async function POST(request: NextRequest) {
           }
           if (api_token) {
             credsPayload.encrypted_api_token = encryptText(api_token);
-            try {
-              credsPayload.canvas_domain = new URL(trimmedUrl || feed_url || '').hostname;
-            } catch {}
+            let dbDomain = '';
+            const dbFeedForDomain = trimmedUrl || feed_url || '';
+            if (dbFeedForDomain) {
+              try { dbDomain = new URL(dbFeedForDomain).hostname; } catch {}
+            }
+            if (!dbDomain) {
+              const existingFeedEnc = cookieStore.get('deadlnr_feed_url')?.value;
+              if (existingFeedEnc) {
+                try { dbDomain = new URL(decryptText(existingFeedEnc)).hostname; } catch {}
+              }
+            }
+            if (dbDomain) credsPayload.canvas_domain = dbDomain;
           }
 
           if (cleanEmail) {

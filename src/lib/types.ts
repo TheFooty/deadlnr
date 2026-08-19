@@ -13,6 +13,7 @@ export interface CanvasAssignment {
   dueDate: string; // ISO String
   description: string;
   canvasUrl: string;
+  uid?: string;
   attachments?: TaskAttachment[];
   isCustom?: boolean;
 }
