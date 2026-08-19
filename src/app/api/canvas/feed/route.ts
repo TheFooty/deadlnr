@@ -253,7 +253,7 @@ export async function GET(request: NextRequest) {
           console.log(`[Canvas API] Found ${submittedIds.size} submitted assignments across ${courses.length} courses`);
 
           // Step 3: Filter out submitted assignments
-          if (submittedIds.size > 0) {
+          if (submittedIds.size > 0 || submittedTitles.size > 0) {
             filteredAssignments = assignments.filter(a => {
               // Try to extract Canvas assignment ID from the URL
               const urlIdMatch = a.canvasUrl?.match(/\/assignments\/(\d+)/);
@@ -262,15 +262,31 @@ export async function GET(request: NextRequest) {
               }
 
               // Try to extract assignment ID from iCal UID
-              // Canvas UIDs are often like: event-assignment-123456@canvas
-              const uidMatch = (a.uid || '').match(/assignment[_-](\d+)/i);
+              // Canvas UIDs: event-assignment-123456 or event-assignment-override-119710
+              const uidMatch = (a.uid || '').match(/event-assignment-(\d+)/i);
               if (uidMatch && submittedIds.has(uidMatch[1])) {
                 return false; // Submitted, hide it
               }
 
-              // Fallback: match by title (case-insensitive)
-              if (submittedTitles.has(a.title.trim().toLowerCase())) {
-                return false; // Submitted, hide it
+              // Fuzzy title matching - iCal SUMMARY lines get truncated at ~75 chars
+              // so the parsed title often contains course info or is cut off
+              const icalTitle = a.title.trim().toLowerCase();
+              
+              // Check exact match first
+              if (submittedTitles.has(icalTitle)) {
+                return false;
+              }
+
+              // Check if any submitted title is contained in the iCal title or vice versa
+              for (const st of submittedTitles) {
+                // Canvas title "1.1 PreCalculus Review" should match iCal "1.1 PreCalculus Review"
+                // Canvas title "Syllabus Acknowledgement" should match iCal "Syllabus Acknowledgement (IB Math..."
+                if (icalTitle.includes(st) || st.includes(icalTitle)) {
+                  // Require minimum 8 chars to avoid false positives on very short titles
+                  if (st.length >= 8 || icalTitle.length >= 8) {
+                    return false; // Submitted, hide it
+                  }
+                }
               }
 
               return true; // Keep it
