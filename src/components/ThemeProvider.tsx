@@ -17,15 +17,41 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<ThemeId>('default');
 
   const applyTheme = (themeId: ThemeId) => {
-    const themeConfig = APP_THEMES[themeId] || APP_THEMES.default;
+    const t = APP_THEMES[themeId] || APP_THEMES.default;
     const root = document.documentElement;
 
-    root.style.setProperty('--brand-primary', themeConfig.primary);
-    root.style.setProperty('--bg-main', themeConfig.bg);
-    root.style.setProperty('--card-surface', themeConfig.card);
-    root.style.setProperty('--accent-positive', themeConfig.accent);
+    // Core surfaces
+    root.style.setProperty('--bg', t.bg);
+    root.style.setProperty('--bg-main', t.bg);
+    root.style.setProperty('--surface', t.card);
+    root.style.setProperty('--card-surface', t.card);
+    root.style.setProperty('--surface-2', t.surface2);
+
+    // UI accent (buttons, links, interactive elements)
+    root.style.setProperty('--accent', t.uiAccent);
+    root.style.setProperty('--accent-hover', adjustColor(t.uiAccent, 20));
+    root.style.setProperty('--accent-active', adjustColor(t.uiAccent, -20));
+    root.style.setProperty('--ui-accent', t.uiAccent);
+
+    // Brand / success
+    root.style.setProperty('--brand-primary', t.primary);
+    root.style.setProperty('--accent-positive', t.accent);
+
     root.setAttribute('data-theme', themeId);
   };
+
+  // Lighten/darken a hex color by amount (-255 to 255)
+  function adjustColor(hex: string, amount: number): string {
+    try {
+      const num = parseInt(hex.replace('#', ''), 16);
+      const r = Math.min(255, Math.max(0, (num >> 16) + amount));
+      const g = Math.min(255, Math.max(0, ((num >> 8) & 0xff) + amount));
+      const b = Math.min(255, Math.max(0, (num & 0xff) + amount));
+      return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+    } catch {
+      return hex;
+    }
+  }
 
   useEffect(() => {
     // 1. Apply local storage immediately for fast render

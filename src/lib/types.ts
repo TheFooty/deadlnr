@@ -20,7 +20,7 @@ export interface CanvasAssignment {
 
 export type PreferredAI = 'gemini' | 'chatgpt' | 'claude';
 
-export type ThemeId = 'default' | 'cyberpunk' | 'emerald' | 'sunset' | 'dracula';
+export type ThemeId = 'default' | 'cyberpunk' | 'emerald' | 'sunset' | 'dracula' | 'ocean' | 'rose';
 
 export interface ThemeOption {
   id: ThemeId;
@@ -29,16 +29,20 @@ export interface ThemeOption {
   bg: string;
   card: string;
   accent: string;
+  uiAccent: string;
+  surface2: string;
 }
 
 export const APP_THEMES: Record<ThemeId, ThemeOption> = {
   default: {
     id: 'default',
     name: 'Deadlnr Dark',
-    primary: '#FF4D1C',
-    bg: '#080A0F',
-    card: '#111622',
-    accent: '#00E599',
+    primary: '#5e6ad2',
+    bg: '#08090a',
+    card: '#191a1b',
+    accent: '#27a644',
+    uiAccent: '#5e6ad2',
+    surface2: '#1f2021',
   },
   cyberpunk: {
     id: 'cyberpunk',
@@ -47,6 +51,8 @@ export const APP_THEMES: Record<ThemeId, ThemeOption> = {
     bg: '#0B0813',
     card: '#161024',
     accent: '#00F0FF',
+    uiAccent: '#FF007A',
+    surface2: '#1c1530',
   },
   emerald: {
     id: 'emerald',
@@ -55,6 +61,8 @@ export const APP_THEMES: Record<ThemeId, ThemeOption> = {
     bg: '#050B14',
     card: '#0F172A',
     accent: '#84CC16',
+    uiAccent: '#10B981',
+    surface2: '#162035',
   },
   sunset: {
     id: 'sunset',
@@ -63,6 +71,8 @@ export const APP_THEMES: Record<ThemeId, ThemeOption> = {
     bg: '#0F0C08',
     card: '#1C1712',
     accent: '#FF6B6B',
+    uiAccent: '#F59E0B',
+    surface2: '#231e14',
   },
   dracula: {
     id: 'dracula',
@@ -71,6 +81,28 @@ export const APP_THEMES: Record<ThemeId, ThemeOption> = {
     bg: '#0D0B14',
     card: '#181524',
     accent: '#EC4899',
+    uiAccent: '#A855F7',
+    surface2: '#1e1a30',
+  },
+  ocean: {
+    id: 'ocean',
+    name: 'Ocean Depths',
+    primary: '#38bdf8',
+    bg: '#030c1a',
+    card: '#0a1628',
+    accent: '#06b6d4',
+    uiAccent: '#0ea5e9',
+    surface2: '#0d1f38',
+  },
+  rose: {
+    id: 'rose',
+    name: 'Rose Gold',
+    primary: '#fb7185',
+    bg: '#150a0a',
+    card: '#221212',
+    accent: '#fda4af',
+    uiAccent: '#f43f5e',
+    surface2: '#2a1616',
   },
 };
 

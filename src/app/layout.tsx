@@ -3,6 +3,7 @@ import { Space_Grotesk, Plus_Jakarta_Sans, Space_Mono, Geist } from 'next/font/g
 import './globals.css';
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from '@/components/ThemeProvider';
+import { PomodoroTimer } from '@/components/PomodoroTimer';
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -62,6 +63,7 @@ export default function RootLayout({
       <body className="font-sans text-[#f7f8f8] min-h-screen antialiased">
         <ThemeProvider>
           {children}
+          <PomodoroTimer />
         </ThemeProvider>
       </body>
     </html>

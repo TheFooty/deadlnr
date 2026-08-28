@@ -265,24 +265,31 @@ export default function SettingsPage() {
                     key={themeKey}
                     type="button"
                     onClick={() => handleThemeSelect(themeKey)}
+                    style={isSelected ? {
+                      borderColor: themeOption.uiAccent,
+                      backgroundColor: `${themeOption.uiAccent}18`,
+                    } : {}}
                     className={`relative flex items-center justify-between rounded-xl border p-4 transition-all text-left ${
                       isSelected
-                        ? 'border-[#5e6ad2] bg-[#5e6ad2]/10'
-                        : 'border-white/[0.1] bg-white/[0.03]/60 hover:border-white/[0.12]'
+                        ? 'border-[#5e6ad2]'
+                        : 'border-white/[0.1] bg-white/[0.03] hover:border-white/[0.15] hover:bg-white/[0.05]'
                     }`}
                   >
                     <div>
-                      <p className="font-medium text-white text-sm mb-1.5">{themeOption.name}</p>
-                      <div className="flex items-center gap-1.5">
-                        <span className="h-3.5 w-3.5 rounded-full border border-white/20" style={{ backgroundColor: themeOption.primary }} title="Primary Accent" />
-                        <span className="h-3.5 w-3.5 rounded-full border border-white/20" style={{ backgroundColor: themeOption.bg }} title="Background" />
-                        <span className="h-3.5 w-3.5 rounded-full border border-white/20" style={{ backgroundColor: themeOption.card }} title="Card Surface" />
-                        <span className="h-3.5 w-3.5 rounded-full border border-white/20" style={{ backgroundColor: themeOption.accent }} title="Success / Completion" />
+                      <p className="font-medium text-white text-sm mb-2">{themeOption.name}</p>
+                      <div className="flex items-center gap-2">
+                        <span className="h-4 w-4 rounded-full border border-white/20" style={{ backgroundColor: themeOption.uiAccent }} title="UI Accent" />
+                        <span className="h-4 w-4 rounded-full border border-white/20" style={{ backgroundColor: themeOption.bg }} title="Background" />
+                        <span className="h-4 w-4 rounded-full border border-white/20" style={{ backgroundColor: themeOption.card }} title="Card Surface" />
+                        <span className="h-4 w-4 rounded-full border border-white/20" style={{ backgroundColor: themeOption.accent }} title="Success Color" />
                       </div>
                     </div>
 
                     {isSelected && (
-                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#5e6ad2] text-white">
+                      <div
+                        className="flex h-5 w-5 items-center justify-center rounded-full text-white shrink-0"
+                        style={{ backgroundColor: themeOption.uiAccent }}
+                      >
                         <Check className="h-3 w-3 stroke-[3]" />
                       </div>
                     )}

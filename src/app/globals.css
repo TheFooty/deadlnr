@@ -62,13 +62,14 @@
   }
 
   body {
-    background-color: var(--bg);
+    background-color: var(--bg, #08090a);
     color: var(--fg-2);
     font-family: "Inter Variable", "Inter", "SF Pro Display", -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
     font-feature-settings: "cv01", "ss03";
     @apply bg-background text-foreground;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    transition: background-color 0.3s ease;
   }
 
   h1, h2, h3, h4, .font-display {
@@ -96,13 +97,6 @@
 /* Weight 510 emphasis — Linear's signature between regular and medium */
 .font-510 { font-weight: 510; }
 
-.card-tactile {
-  background-color: var(--surface);
-  border: 1px solid var(--border-soft);
-  box-shadow:
-    rgba(0, 0, 0, 0.4) 0px 2px 4px,
-    0 0 0 1px rgba(255, 255, 255, 0.02);
-}
 .card-tactile-active {
   border-color: rgba(255, 255, 255, 0.14) !important;
   box-shadow:
@@ -138,8 +132,40 @@
 }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.18); }
 
-button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+/* ── Theme-reactive utilities ──────────────────────────── */
+/* These classes use CSS variables set by ThemeProvider so they
+   automatically update when the user switches themes */
+
+.theme-bg       { background-color: var(--bg, #08090a); transition: background-color 0.3s ease; }
+.theme-surface  { background-color: var(--surface, #191a1b); transition: background-color 0.3s ease; }
+.theme-surface-2 { background-color: var(--surface-2, #1f2021); transition: background-color 0.3s ease; }
+.theme-card     { background-color: var(--surface, #191a1b); border-color: rgba(255,255,255,0.08); }
+
+/* Accent-colored buttons/badges — theme-aware */
+.btn-accent {
+  background-color: var(--accent, #5e6ad2);
+  color: #fff;
+  transition: background-color 0.2s ease, opacity 0.2s ease;
+}
+.btn-accent:hover { background-color: var(--accent-hover, #828fff); }
+.btn-accent:active { background-color: var(--accent-active, #4752c4); transform: scale(0.97); }
+
+.text-accent   { color: var(--accent, #5e6ad2); }
+.border-accent { border-color: var(--accent, #5e6ad2); }
+.bg-accent-subtle { background-color: color-mix(in srgb, var(--accent, #5e6ad2) 12%, transparent); }
+.ring-accent   { --tw-ring-color: var(--accent, #5e6ad2); }
+
+/* Card surface — smoothly transitions on theme switch */
+.card-tactile {
+  background-color: var(--surface, #191a1b);
+  border: 1px solid var(--border-soft, rgba(255, 255, 255, 0.05));
+  box-shadow:
+    rgba(0, 0, 0, 0.4) 0px 2px 4px,
+    0 0 0 1px rgba(255, 255, 255, 0.02);
+  transition: background-color 0.3s ease;
+}
 [class*="fixed inset-0"] { overscroll-behavior: contain; }
+button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 
 /* iOS safe areas — notch and home indicator */
 body {
