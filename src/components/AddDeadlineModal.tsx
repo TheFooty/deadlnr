@@ -106,11 +106,17 @@ export function AddDeadlineModal({ isOpen, onClose, onAdded }: AddDeadlineModalP
     e.preventDefault();
     if (!title.trim() || !dueDate) return;
 
+    const dueMs = new Date(dueDate).getTime();
+    if (isNaN(dueMs)) return;
+
+    // Warn (but allow) past-due custom tasks
+    const isPast = dueMs < Date.now();
+
     const newAssignment: CanvasAssignment = {
       id: `custom_${Date.now()}`,
       title: title.trim(),
       course: course.trim().toUpperCase() || 'CUSTOM',
-      dueDate: new Date(dueDate).toISOString(),
+      dueDate: new Date(dueMs).toISOString(),
       description: description.trim(),
       canvasUrl: url.trim(),
       attachments,
@@ -146,6 +152,18 @@ export function AddDeadlineModal({ isOpen, onClose, onAdded }: AddDeadlineModalP
     onClose();
   };
 
+  // Close on Escape
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
+
+  const isFormValid = title.trim().length > 0 && dueDate.length > 0;
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -153,32 +171,32 @@ export function AddDeadlineModal({ isOpen, onClose, onAdded }: AddDeadlineModalP
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#080A0F]/85 backdrop-blur-xl"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#08090a]/85 backdrop-blur-xl"
         >
           <motion.div
             initial={{ scale: 0.94, y: 16 }}
             animate={{ scale: 1, y: 0 }}
             exit={{ scale: 0.94, y: 16 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="w-full max-w-lg rounded-[2rem] border border-white/[0.08] bg-[#111622] p-6 sm:p-8 shadow-2xl shadow-black/80 space-y-5 max-h-[90vh] overflow-y-auto"
+            className="w-full max-w-lg rounded-xl border border-white/[0.08] bg-[#191a1b] p-6 sm:p-8 shadow-black/80 space-y-5 max-h-[90vh] overflow-y-auto"
           >
             {/* Header */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FF3B00]/15 text-[#FF3B00] border border-[#FF3B00]/30">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#5e6ad2]/15 text-[#828fff] border border-[#5e6ad2]/30">
                   <Plus className="h-5 w-5 stroke-[2.5]" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-white font-display tracking-tight">
+                  <h3 className="text-xl font-medium text-white font-display tracking-tight">
                     Add New Deadline
                   </h3>
-                  <p className="text-xs text-slate-400">Add custom tasks, Kognity assignments, or Canvas items</p>
+                  <p className="text-xs text-white/55">Add custom tasks, Kognity assignments, or Canvas items</p>
                 </div>
               </div>
 
               <button
                 onClick={onClose}
-                className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#080A0F] border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#08090a] border border-white/[0.1] text-white/55 hover:text-white hover:bg-white/[0.05] transition-colors"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -187,16 +205,16 @@ export function AddDeadlineModal({ isOpen, onClose, onAdded }: AddDeadlineModalP
             {/* Quick Presets & Smart Paste Toggle */}
             <div className="space-y-2 pt-1">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                <span className="text-[11px] font-mono font-medium text-white/55 uppercase tracking-wider">
                   Quick Presets:
                 </span>
 
                 <button
                   type="button"
                   onClick={() => setShowSmartPaste(!showSmartPaste)}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-[#00E599] hover:underline"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-[#27a644] hover:underline"
                 >
-                  <Zap className="h-3.5 w-3.5 text-[#00E599]" />
+                  <Zap className="h-3.5 w-3.5 text-[#27a644]" />
                   <span>{showSmartPaste ? 'Close Quick Paste' : 'Paste from Kognity'}</span>
                 </button>
               </div>
@@ -205,7 +223,7 @@ export function AddDeadlineModal({ isOpen, onClose, onAdded }: AddDeadlineModalP
                 <button
                   type="button"
                   onClick={() => applyPreset('KOGNITY')}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#00A4B8]/40 bg-[#00A4B8]/15 px-3 py-1.5 text-xs font-bold text-[#00A4B8] hover:bg-[#00A4B8]/25 transition-all"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#00A4B8]/40 bg-[#00A4B8]/15 px-3 py-1.5 text-xs font-medium text-[#00A4B8] hover:bg-[#00A4B8]/25 transition-all"
                 >
                   <span className="h-2 w-2 rounded-full bg-[#00A4B8]" />
                   <span>Kognity Task</span>
@@ -214,9 +232,9 @@ export function AddDeadlineModal({ isOpen, onClose, onAdded }: AddDeadlineModalP
                 <button
                   type="button"
                   onClick={() => applyPreset('CANVAS')}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#FF3B00]/40 bg-[#FF3B00]/15 px-3 py-1.5 text-xs font-bold text-[#FF3B00] hover:bg-[#FF3B00]/25 transition-all"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#5e6ad2]/40 bg-[#5e6ad2]/15 px-3 py-1.5 text-xs font-medium text-[#828fff] hover:bg-[#5e6ad2]/25 transition-all"
                 >
-                  <span className="h-2 w-2 rounded-full bg-[#FF3B00]" />
+                  <span className="h-2 w-2 rounded-full bg-[#5e6ad2]" />
                   <span>Canvas Task</span>
                 </button>
               </div>
@@ -229,10 +247,10 @@ export function AddDeadlineModal({ isOpen, onClose, onAdded }: AddDeadlineModalP
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  className="overflow-hidden rounded-2xl border border-[#00E599]/30 bg-[#00E599]/5 p-4 space-y-3"
+                  className="overflow-hidden rounded-lg border border-[#27a644]/30 bg-[#27a644]/5 p-4 space-y-3"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-[#00E599] flex items-center gap-1.5">
+                    <span className="text-xs font-medium text-[#27a644] flex items-center gap-1.5">
                       <Sparkles className="h-4 w-4" />
                       <span>Paste Kognity Assignment Details</span>
                     </span>
@@ -242,12 +260,12 @@ export function AddDeadlineModal({ isOpen, onClose, onAdded }: AddDeadlineModalP
                     placeholder="Paste text copied from Kognity assignment (e.g., 'Biology SL Practice - Due Oct 24')..."
                     value={smartText}
                     onChange={(e) => setSmartText(e.target.value)}
-                    className="w-full rounded-xl border border-slate-800 bg-[#080A0F] p-3 text-xs text-white placeholder-slate-600 focus:border-[#00E599] focus:outline-none resize-none"
+                    className="w-full rounded-xl border border-white/[0.1] bg-[#08090a] p-3 text-xs text-white placeholder-slate-600 focus:border-[#27a644] focus:outline-none resize-none"
                   />
                   <button
                     type="button"
                     onClick={handleSmartParse}
-                    className="w-full rounded-xl bg-[#00E599] hover:bg-[#00E599]/90 py-2 text-xs font-bold text-slate-950 shadow-md font-display"
+                    className="w-full rounded-xl bg-[#27a644] hover:bg-[#27a644]/90 py-2 text-xs font-medium text-[#08090a] font-display"
                   >
                     Auto-Fill Assignment Fields
                   </button>
@@ -258,8 +276,8 @@ export function AddDeadlineModal({ isOpen, onClose, onAdded }: AddDeadlineModalP
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-mono font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                  Assignment Title <span className="text-[#FF3B00]">*</span>
+                <label className="block text-xs font-mono font-medium text-white/80 uppercase tracking-wider mb-1.5">
+                  Assignment Title <span className="text-[#828fff]">*</span>
                 </label>
                 <input
                   type="text"
@@ -267,13 +285,13 @@ export function AddDeadlineModal({ isOpen, onClose, onAdded }: AddDeadlineModalP
                   placeholder="e.g. Kognity Physics Section 3.2 Quiz"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-800 bg-[#080A0F] px-4 py-3 text-sm text-white placeholder-slate-600 focus:border-[#FF3B00] focus:outline-none focus:ring-1 focus:ring-[#FF3B00] transition-all"
+                  className="w-full rounded-lg border border-white/[0.1] bg-[#08090a] px-4 py-3 text-sm text-white placeholder-slate-600 focus:border-[#5e6ad2] focus:outline-none focus:ring-1 focus:ring-[#5e6ad2] transition-all"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-mono font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-mono font-medium text-white/80 uppercase tracking-wider mb-1.5">
                     Course Code / Platform
                   </label>
                   <div className="relative">
@@ -282,15 +300,15 @@ export function AddDeadlineModal({ isOpen, onClose, onAdded }: AddDeadlineModalP
                       placeholder="KOGNITY"
                       value={course}
                       onChange={(e) => setCourse(e.target.value)}
-                      className="w-full rounded-2xl border border-slate-800 bg-[#080A0F] px-4 py-3 pl-10 text-sm text-white placeholder-slate-600 focus:border-[#FF3B00] focus:outline-none transition-all uppercase"
+                      className="w-full rounded-lg border border-white/[0.1] bg-[#08090a] px-4 py-3 pl-10 text-sm text-white placeholder-slate-600 focus:border-[#5e6ad2] focus:outline-none transition-all uppercase"
                     />
-                    <BookOpen className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-500" />
+                    <BookOpen className="absolute left-3.5 top-3.5 h-4 w-4 text-white/40" />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-mono font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                    Due Date & Time <span className="text-[#FF3B00]">*</span>
+                  <label className="block text-xs font-mono font-medium text-white/80 uppercase tracking-wider mb-1.5">
+                    Due Date & Time <span className="text-[#828fff]">*</span>
                   </label>
                   <div className="relative">
                     <input
@@ -298,14 +316,14 @@ export function AddDeadlineModal({ isOpen, onClose, onAdded }: AddDeadlineModalP
                       required
                       value={dueDate}
                       onChange={(e) => setDueDate(e.target.value)}
-                      className="w-full rounded-2xl border border-slate-800 bg-[#080A0F] px-4 py-3 text-xs text-white focus:border-[#FF3B00] focus:outline-none transition-all"
+                      className="w-full rounded-lg border border-white/[0.1] bg-[#08090a] px-4 py-3 text-xs text-white focus:border-[#5e6ad2] focus:outline-none transition-all"
                     />
                   </div>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-mono font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-mono font-medium text-white/80 uppercase tracking-wider mb-1.5">
                   Description / Instructions
                 </label>
                 <textarea
@@ -313,25 +331,25 @@ export function AddDeadlineModal({ isOpen, onClose, onAdded }: AddDeadlineModalP
                   placeholder="Enter assignment requirements, rubric details, or notes..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-800 bg-[#080A0F] p-4 text-xs sm:text-sm text-white placeholder-slate-600 focus:border-[#FF3B00] focus:outline-none resize-none transition-all leading-relaxed"
+                  className="w-full rounded-lg border border-white/[0.1] bg-[#08090a] p-4 text-xs sm:text-sm text-white placeholder-slate-600 focus:border-[#5e6ad2] focus:outline-none resize-none transition-all leading-relaxed"
                 />
               </div>
 
               {/* Attachments Section during creation */}
               <div>
-                <label className="block text-xs font-mono font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-mono font-medium text-white/80 uppercase tracking-wider mb-1.5">
                   Attach Files (PDFs, Images, Rubrics)
                 </label>
                 <div className="space-y-2">
                   {attachments.map((att) => (
                     <div
                       key={att.id}
-                      className="flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-[#080A0F] px-3.5 py-2.5 text-xs"
+                      className="flex items-center justify-between gap-3 rounded-lg border border-white/[0.1] bg-[#08090a] px-3.5 py-2.5 text-xs"
                     >
                       <div className="flex items-center gap-2 truncate">
-                        <FileText className="h-4 w-4 text-[#00E599] shrink-0" />
-                        <span className="font-semibold text-slate-200 truncate">{att.name}</span>
-                        <span className="text-[10px] text-slate-500 font-mono">
+                        <FileText className="h-4 w-4 text-[#27a644] shrink-0" />
+                        <span className="font-semibold text-white/90 truncate">{att.name}</span>
+                        <span className="text-[10px] text-white/40 font-mono">
                           ({(att.size / 1024).toFixed(1)} KB)
                         </span>
                       </div>
@@ -340,7 +358,7 @@ export function AddDeadlineModal({ isOpen, onClose, onAdded }: AddDeadlineModalP
                         <button
                           type="button"
                           onClick={() => previewFile(att)}
-                          className="text-xs text-[#00E599] hover:underline flex items-center gap-1 font-bold"
+                          className="text-xs text-[#27a644] hover:underline flex items-center gap-1 font-medium"
                         >
                           <Eye className="h-3 w-3" />
                           <span>Preview</span>
@@ -348,7 +366,7 @@ export function AddDeadlineModal({ isOpen, onClose, onAdded }: AddDeadlineModalP
                         <button
                           type="button"
                           onClick={() => handleRemoveAttachment(att.id)}
-                          className="text-slate-500 hover:text-rose-400 p-1"
+                          className="text-white/40 hover:text-rose-400 p-1"
                         >
                           <X className="h-3.5 w-3.5" />
                         </button>
@@ -356,8 +374,8 @@ export function AddDeadlineModal({ isOpen, onClose, onAdded }: AddDeadlineModalP
                     </div>
                   ))}
 
-                  <label className="flex items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-700 hover:border-[#FF3B00] bg-[#080A0F]/60 p-3.5 cursor-pointer text-xs text-slate-400 hover:text-white transition-all">
-                    <UploadCloud className="h-4 w-4 text-[#FF3B00]" />
+                  <label className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-white/[0.12] hover:border-[#5e6ad2] bg-[#08090a]/60 p-3.5 cursor-pointer text-xs text-white/55 hover:text-white transition-all">
+                    <UploadCloud className="h-4 w-4 text-[#828fff]" />
                     <span>Upload attachment files</span>
                     <input
                       type="file"
@@ -370,7 +388,7 @@ export function AddDeadlineModal({ isOpen, onClose, onAdded }: AddDeadlineModalP
               </div>
 
               <div>
-                <label className="block text-xs font-mono font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-mono font-medium text-white/80 uppercase tracking-wider mb-1.5">
                   Resource Link (Optional)
                 </label>
                 <div className="relative">
@@ -379,9 +397,9 @@ export function AddDeadlineModal({ isOpen, onClose, onAdded }: AddDeadlineModalP
                     placeholder="https://app.kognity.com..."
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-800 bg-[#080A0F] px-4 py-3 pl-10 text-xs text-white placeholder-slate-600 focus:border-[#FF3B00] focus:outline-none transition-all font-mono"
+                    className="w-full rounded-lg border border-white/[0.1] bg-[#08090a] px-4 py-3 pl-10 text-xs text-white placeholder-slate-600 focus:border-[#5e6ad2] focus:outline-none transition-all font-mono"
                   />
-                  <Link2 className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-500" />
+                  <Link2 className="absolute left-3.5 top-3.5 h-4 w-4 text-white/40" />
                 </div>
               </div>
 
@@ -390,14 +408,15 @@ export function AddDeadlineModal({ isOpen, onClose, onAdded }: AddDeadlineModalP
                 <button
                   type="button"
                   onClick={onClose}
-                  className="rounded-2xl bg-[#080A0F] hover:bg-slate-900 px-5 py-3 text-xs font-bold text-slate-400 hover:text-white border border-slate-800 transition-all"
+                  className="rounded-lg bg-[#08090a] hover:bg-white/[0.06] px-5 py-3 text-xs font-medium text-white/55 hover:text-white border border-white/[0.1] transition-all"
                 >
                   Cancel
                 </button>
 
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-2 rounded-2xl bg-[#FF3B00] hover:bg-[#FF3B00]/90 px-6 py-3 text-xs sm:text-sm font-bold text-white shadow-xl shadow-[#FF3B00]/20 active:scale-95 transition-all font-display"
+                  disabled={!isFormValid}
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 px-6 py-3 text-xs sm:text-sm font-medium text-white active:scale-95 transition-all font-display disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Plus className="h-4 w-4 stroke-[2.5]" />
                   <span>Add to Deck</span>

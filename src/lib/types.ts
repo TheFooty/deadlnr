@@ -35,7 +35,7 @@ export const APP_THEMES: Record<ThemeId, ThemeOption> = {
   default: {
     id: 'default',
     name: 'Deadlnr Dark',
-    primary: '#FF3B00',
+    primary: '#FF4D1C',
     bg: '#080A0F',
     card: '#111622',
     accent: '#00E599',

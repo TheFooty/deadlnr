@@ -63,11 +63,15 @@ export function SwipeDeck({
   const { isPhone, isTablet, isDesktop } = useDevice();
 
   // Load deck & filter out swiped IDs (persisted across refreshes)
+  // Mock sample cards are NEVER persisted — they always come back on reload
   useEffect(() => {
+    const isMockId = (id: string) => id.startsWith('mock-') || id.startsWith('mock_');
+
     if (typeof window !== 'undefined') {
       try {
+        let swipedArr: string[] = [];
         const storedSwiped = localStorage.getItem('deadlnr_swiped_ids_persistent');
-        const swipedArr: string[] = storedSwiped ? JSON.parse(storedSwiped) : [];
+        swipedArr = storedSwiped ? JSON.parse(storedSwiped) : [];
 
         const storedHistory = localStorage.getItem('deadlnr_swipe_history');
         if (storedHistory) {
@@ -79,8 +83,17 @@ export function SwipeDeck({
           });
         }
 
+        // Drop mock IDs from the persistent filter — samples should re-appear
+        const realSwiped = swipedArr.filter((id) => !isMockId(id));
+        if (realSwiped.length !== swipedArr.length) {
+          localStorage.setItem('deadlnr_swiped_ids_persistent', JSON.stringify(realSwiped));
+        }
+        swipedArr = realSwiped;
+
         const swipedSet = new Set(swipedArr);
-        const unswiped = initialAssignments.filter((a) => !swipedSet.has(a.id));
+        const unswiped = initialAssignments.filter(
+          (a) => !swipedSet.has(a.id) || isMockId(a.id)
+        );
         setDeck(unswiped);
         return;
       } catch {}
@@ -220,7 +233,7 @@ export function SwipeDeck({
       particleCount: isPhone ? 80 : 120,
       spread: 90,
       origin: { y: 0.6 },
-      colors: ['#00E599', '#FF3B00', '#3B82F6', '#FFB703', '#A855F7'],
+      colors: ['#27a644', '#5e6ad2', '#3B82F6', '#FFB703', '#A855F7'],
     });
 
     logSwipe(targetAssignment, 'right');
@@ -328,7 +341,15 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
   // Keyboard controls for deck swiping
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (showOverview || deck.length === 0 || swipingId || pendingSkip || activeDetailAssignment) return;
+      // Esc closes any open modal first
+      if (e.key === 'Escape') {
+        if (activeDetailAssignment) setActiveDetailAssignment(null);
+        else if (pendingSkip) setPendingSkip(null);
+        else if (showOverview) setShowOverview(false);
+        return;
+      }
+      if (showOverview || activeDetailAssignment || pendingSkip) return;
+      if (deck.length === 0 || swipingId) return;
       if (e.key === 'ArrowLeft') {
         handleSwipe('left');
       } else if (e.key === 'ArrowRight') {
@@ -340,6 +361,13 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [deck, swipingId, pendingSkip, activeDetailAssignment, showOverview, handleSwipe]);
 
+  // Lock background scroll while a modal is open
+  useEffect(() => {
+    const modalOpen = showOverview || !!activeDetailAssignment || !!pendingSkip;
+    document.body.style.overflow = modalOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [showOverview, activeDetailAssignment, pendingSkip]);
+
   // Confetti on clear ONLY if user actually swiped cards in this session!
   useEffect(() => {
     if (hasSwipedAny && deck.length === 0 && initialAssignments.length > 0) {
@@ -347,7 +375,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
         particleCount: isPhone ? 60 : 100,
         spread: 75,
         origin: { y: 0.55 },
-        colors: ['#FF3B00', '#00E599', '#FF0055', '#FFB703'],
+        colors: ['#5e6ad2', '#27a644', '#dc2626', '#FFB703'],
       });
     }
   }, [deck.length, initialAssignments.length, hasSwipedAny, isPhone]);
@@ -374,19 +402,19 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex flex-col items-center justify-between p-4 sm:p-6 bg-[#080A0F]/95 backdrop-blur-2xl overflow-y-auto"
+            className="fixed inset-0 z-50 flex flex-col items-center justify-between p-4 sm:p-6 bg-[#08090a]/95 backdrop-blur-2xl overflow-y-auto"
           >
             {/* Overview Header */}
-            <div className="w-full max-w-5xl flex items-center justify-between py-3 border-b border-slate-800 mb-4 shrink-0">
+            <div className="w-full max-w-5xl flex items-center justify-between py-3 border-b border-white/[0.1] mb-4 shrink-0">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FF3B00]/15 text-[#FF3B00] border border-[#FF3B00]/30">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#5e6ad2]/15 text-[#828fff] border border-[#5e6ad2]/30">
                   <LayoutGrid className="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 className="text-xl sm:text-2xl font-black text-white font-display">
+                  <h2 className="text-xl sm:text-2xl font-medium text-white font-display">
                     Deck Overview
                   </h2>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-white/55">
                     {deck.length} card{deck.length === 1 ? '' : 's'} remaining • Click card to focus or ✕ to dismiss
                   </p>
                 </div>
@@ -394,7 +422,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
 
               <button
                 onClick={() => setShowOverview(false)}
-                className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06] border border-white/[0.1] text-white/55 hover:text-white hover:bg-white/[0.05] transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -404,7 +432,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
             <div className="flex-1 w-full max-w-5xl flex flex-col items-center justify-start py-2">
               {deck.length === 0 ? (
                 <div className="text-center py-12">
-                  <p className="text-slate-400 text-sm">No cards remaining in your deck!</p>
+                  <p className="text-white/55 text-sm">No cards remaining in your deck!</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 w-full py-4">
@@ -420,17 +448,17 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
                           exit={{ opacity: 0, scale: 0.85, transition: { duration: 0.15 } }}
                           onClick={() => handleSelectFromOverview(item)}
                           whileHover={{ scale: 1.02, y: -4 }}
-                          className={`cursor-pointer rounded-2xl border bg-[#111622] p-5 shadow-lg transition-all card-tactile group flex flex-col justify-between ${theme.border} relative`}
+                          className={`cursor-pointer rounded-lg border bg-[#191a1b] p-5 transition-all card-tactile group flex flex-col justify-between ${theme.border} relative`}
                         >
                           <div>
                             <div className="flex items-center justify-between mb-3 gap-2">
-                              <span className={`inline-flex items-center gap-1.5 text-xs font-mono font-bold px-2.5 py-1 rounded-full border ${theme.text} ${theme.bg} ${theme.border} truncate max-w-[65%]`}>
+                              <span className={`inline-flex items-center gap-1.5 text-xs font-mono font-medium px-2.5 py-1 rounded-full border ${theme.text} ${theme.bg} ${theme.border} truncate max-w-[65%]`}>
                                 <span className={`h-2 w-2 rounded-full shrink-0 ${theme.dot}`} />
                                 <span className="truncate">{item.course}</span>
                               </span>
 
                               <div className="flex items-center gap-1.5 shrink-0">
-                                <span className="text-xs text-slate-500 font-mono font-bold">#{idx + 1}</span>
+                                <span className="text-xs text-white/40 font-mono font-medium">#{idx + 1}</span>
                                 <button
                                   type="button"
                                   onClick={(e) => {
@@ -438,23 +466,23 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
                                     handleQuickDismiss(item);
                                   }}
                                   title="Dismiss / X out assignment"
-                                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-900/90 border border-slate-800 text-slate-400 hover:text-red-400 hover:bg-red-500/15 hover:border-red-500/30 active:scale-90 transition-all shadow-sm"
+                                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/[0.06] border border-white/[0.1] text-white/55 hover:text-red-400 hover:bg-red-500/15 hover:border-red-500/30 active:scale-90 transition-all"
                                 >
                                   <X className="h-3.5 w-3.5" />
                                 </button>
                               </div>
                             </div>
 
-                            <h4 className="text-white font-extrabold text-base font-display mb-2 group-hover:text-[#FF3B00] transition-colors leading-snug">
+                            <h4 className="text-white font-medium text-base font-display mb-2 group-hover:text-[#828fff] transition-colors leading-snug">
                               {item.title}
                             </h4>
 
-                            <p className="text-xs text-slate-400 line-clamp-3 leading-relaxed mb-4">
+                            <p className="text-xs text-white/55 line-clamp-3 leading-relaxed mb-4">
                               {item.description || 'No detailed instructions provided in calendar feed.'}
                             </p>
                           </div>
 
-                          <div className="space-y-3 pt-3 border-t border-slate-800/80">
+                          <div className="space-y-3 pt-3 border-t border-white/[0.1]/80">
                             {item.attachments && item.attachments.length > 0 && (
                               <div className="inline-flex items-center gap-1 text-[11px] font-mono text-cyan-300 bg-cyan-500/10 px-2.5 py-1 rounded-xl border border-cyan-500/20">
                                 <Paperclip className="h-3 w-3 text-cyan-400" />
@@ -463,10 +491,10 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
                             )}
 
                             <div className="flex items-center justify-between">
-                              <span className="text-xs text-slate-400 font-mono">
-                                Due: <strong className="text-slate-200">{new Date(item.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</strong>
+                              <span className="text-xs text-white/55 font-mono">
+                                Due: <strong className="text-white/90">{new Date(item.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</strong>
                               </span>
-                              <span className={`text-xs font-bold ${theme.text} group-hover:underline font-display`}>
+                              <span className={`text-xs font-medium ${theme.text} group-hover:underline font-display`}>
                                 Focus Card →
                               </span>
                             </div>
@@ -480,13 +508,13 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
             </div>
 
             {/* Overview Footer */}
-            <div className="w-full max-w-5xl flex items-center justify-between pt-3 border-t border-slate-800 shrink-0">
-              <span className="text-xs text-slate-400 font-mono">
+            <div className="w-full max-w-5xl flex items-center justify-between pt-3 border-t border-white/[0.1] shrink-0">
+              <span className="text-xs text-white/55 font-mono">
                 Tip: Click any card above to bring it to the top of your deck
               </span>
               <button
                 onClick={() => setShowOverview(false)}
-                className="rounded-xl bg-slate-900 border border-slate-800 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 transition-colors"
+                className="rounded-xl bg-white/[0.06] border border-white/[0.1] px-4 py-2 text-xs font-medium text-white hover:bg-white/[0.05] transition-colors"
               >
                 Back to Deck
               </button>
@@ -502,39 +530,39 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#080A0F]/85 backdrop-blur-md"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#08090a]/85 backdrop-blur-md"
           >
             <motion.div
               initial={{ scale: 0.92, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.92, y: 20 }}
-              className="w-full max-w-lg rounded-3xl border border-slate-800 bg-[#111622] p-6 sm:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto"
+              className="w-full max-w-lg rounded-xl border border-white/[0.1] bg-[#191a1b] p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto"
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#00E599] bg-[#00E599]/10 px-3 py-1 rounded-full border border-[#00E599]/20">
+                <span className="text-xs font-mono font-medium uppercase tracking-wider text-[#27a644] bg-[#27a644]/10 px-3 py-1 rounded-full border border-[#27a644]/20">
                   {activeDetailAssignment.course}
                 </span>
 
                 <button
                   onClick={() => setActiveDetailAssignment(null)}
-                  className="rounded-xl bg-slate-900 border border-slate-800 p-1.5 text-slate-400 hover:text-white"
+                  className="rounded-xl bg-white/[0.06] border border-white/[0.1] p-1.5 text-white/55 hover:text-white"
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
 
               <div>
-                <h3 className="text-2xl font-black text-white font-display leading-tight mb-2">
+                <h3 className="text-2xl font-medium text-white font-display leading-tight mb-2">
                   {activeDetailAssignment.title}
                 </h3>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-white/55">
                   Due: {new Date(activeDetailAssignment.dueDate).toLocaleString()}
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4 text-xs sm:text-sm text-slate-300 space-y-2 leading-relaxed">
-                <p className="font-bold text-slate-200">Assignment Details:</p>
-                <p className="whitespace-pre-line text-slate-400">
+              <div className="rounded-lg border border-white/[0.1] bg-white/[0.03]/80 p-4 text-xs sm:text-sm text-white/80 space-y-2 leading-relaxed">
+                <p className="font-medium text-white/90">Assignment Details:</p>
+                <p className="whitespace-pre-line text-white/55">
                   {activeDetailAssignment.description || 'No detailed instructions provided in calendar feed. Open Canvas for full details.'}
                 </p>
               </div>
@@ -542,24 +570,24 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
               {/* Attached Files List in Detail Modal */}
               {activeDetailAssignment.attachments && activeDetailAssignment.attachments.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">
+                  <p className="text-xs font-mono font-medium text-white/55 uppercase tracking-wider">
                     Attached Files ({activeDetailAssignment.attachments.length}):
                   </p>
                   <div className="space-y-1.5">
                     {activeDetailAssignment.attachments.map((att) => (
                       <div
                         key={att.id}
-                        className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs"
+                        className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.1] bg-white/[0.03] px-3.5 py-2.5 text-xs"
                       >
                         <div className="flex items-center gap-2 truncate">
-                          <Paperclip className="h-3.5 w-3.5 text-[#00E599] shrink-0" />
-                          <span className="font-semibold text-slate-200 truncate">{att.name}</span>
+                          <Paperclip className="h-3.5 w-3.5 text-[#27a644] shrink-0" />
+                          <span className="font-semibold text-white/90 truncate">{att.name}</span>
                         </div>
                         <div className="flex items-center gap-3 shrink-0">
                           <button
                             type="button"
                             onClick={() => previewFile(att)}
-                            className="text-[#00E599] hover:underline font-bold inline-flex items-center gap-1 text-xs"
+                            className="text-[#27a644] hover:underline font-medium inline-flex items-center gap-1 text-xs"
                           >
                             <Eye className="h-3.5 w-3.5" />
                             <span>Preview</span>
@@ -567,7 +595,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
                           <a
                             href={att.dataUrl}
                             download={att.name}
-                            className="text-slate-400 hover:text-white hover:underline text-xs flex items-center gap-1"
+                            className="text-white/55 hover:text-white hover:underline text-xs flex items-center gap-1"
                           >
                             <Download className="h-3 w-3" />
                             <span>Download</span>
@@ -582,7 +610,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <button
                   onClick={() => handleMarkAsDone(activeDetailAssignment)}
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#00E599] hover:bg-[#00E599]/90 py-3.5 text-xs sm:text-sm font-bold text-slate-950 shadow-lg active:scale-95 transition-all font-display"
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-[#27a644] hover:bg-[#27a644]/90 py-3.5 text-xs sm:text-sm font-medium text-[#08090a] active:scale-95 transition-all font-display"
                 >
                   <CheckCircle className="h-4 w-4 stroke-[2.5]" />
                   <span>I&apos;ve Done It! 🎉</span>
@@ -590,7 +618,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
 
                 <button
                   onClick={() => handleLaunchAiFromModal(activeDetailAssignment)}
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#FF3B00] hover:bg-[#FF3B00]/90 py-3.5 text-xs sm:text-sm font-bold text-white shadow-lg active:scale-95 transition-all font-display"
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 py-3.5 text-xs sm:text-sm font-medium text-white active:scale-95 transition-all font-display"
                 >
                   <Sparkles className="h-4 w-4" />
                   <span>Ask {currentAi.name}</span>
@@ -603,7 +631,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
                     href={activeDetailAssignment.canvasUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 underline underline-offset-2"
+                    className="inline-flex items-center gap-1.5 text-xs text-white/40 hover:text-white/80 underline underline-offset-2"
                   >
                     <span>Open in Canvas LMS</span>
                     <ExternalLink className="h-3 w-3" />
@@ -622,34 +650,34 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#080A0F]/80 backdrop-blur-md"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#08090a]/80 backdrop-blur-md"
           >
             <motion.div
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 0 }}
-              className="w-full max-w-md rounded-3xl border border-[#FF0055]/40 bg-[#111622] p-6 shadow-2xl card-tactile"
+              className="w-full max-w-md rounded-xl border border-[#dc2626]/40 bg-[#191a1b] p-6 card-tactile"
             >
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FF0055]/15 text-[#FF0055] border border-[#FF0055]/30 mb-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[#dc2626]/15 text-[#dc2626] border border-[#dc2626]/30 mb-4">
                 <AlertTriangle className="h-6 w-6" />
               </div>
 
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FF0055]/15 text-[#FF0055] border border-[#FF0055]/30 text-xs font-mono font-bold mb-2">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#dc2626]/15 text-[#dc2626] border border-[#dc2626]/30 text-xs font-mono font-medium mb-2">
                 <Clock className="h-3.5 w-3.5" />
                 <span>Due in {pendingSkip.hoursLeft} hours!</span>
               </div>
 
-              <h3 className="text-xl font-extrabold text-white font-display mb-2">
+              <h3 className="text-xl font-medium text-white font-display mb-2">
                 Urgent Deadline Warning
               </h3>
-              <p className="text-xs sm:text-sm text-slate-300 mb-6 leading-relaxed">
+              <p className="text-xs sm:text-sm text-white/80 mb-6 leading-relaxed">
                 <strong className="text-white">&quot;{pendingSkip.assignment.title}&quot;</strong> is due in under 12 hours. Are you sure you want to skip it?
               </p>
 
               <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   onClick={() => executeSwipeLeft(pendingSkip.assignment)}
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#FF0055] hover:bg-[#FF0055]/90 py-3 text-xs sm:text-sm font-bold text-white shadow-lg active:scale-95 transition-all font-display"
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-[#dc2626] hover:bg-[#dc2626]/90 py-3 text-xs sm:text-sm font-medium text-white active:scale-95 transition-all font-display"
                 >
                   <X className="h-4 w-4" />
                   <span>Yes, Skip for Now</span>
@@ -657,7 +685,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
 
                 <button
                   onClick={() => setPendingSkip(null)}
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-800 py-3 text-xs sm:text-sm font-bold text-slate-200 active:scale-95 transition-all"
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-white/[0.06] hover:bg-white/[0.05] border border-white/[0.1] py-3 text-xs sm:text-sm font-medium text-white/90 active:scale-95 transition-all"
                 >
                   <span>No, Keep on Deck</span>
                 </button>
@@ -668,17 +696,17 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
       </AnimatePresence>
 
       {/* Header Metric & Overview Trigger */}
-      <div className="w-full flex items-center justify-between px-2 mb-3 text-xs font-mono font-bold text-slate-400">
+      <div className="w-full flex items-center justify-between px-2 mb-3 text-xs font-mono font-medium text-white/55">
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-slate-900/90 px-3 py-1 rounded-full border border-slate-800">
-            <Layers className="h-3.5 w-3.5 text-[#FF3B00]" />
+          <div className="flex items-center gap-1.5 bg-white/[0.06] px-3 py-1 rounded-full border border-white/[0.1]">
+            <Layers className="h-3.5 w-3.5 text-[#828fff]" />
             <span>{deck.length} remaining</span>
           </div>
 
           {deck.length > 0 && (
             <button
               onClick={() => setShowOverview(true)}
-              className="inline-flex items-center gap-1.5 bg-[#FF3B00]/15 hover:bg-[#FF3B00]/25 text-[#FF3B00] border border-[#FF3B00]/30 px-3 py-1 rounded-full transition-all active:scale-95"
+              className="inline-flex items-center gap-1.5 bg-[#5e6ad2]/15 hover:bg-[#5e6ad2]/25 text-[#828fff] border border-[#5e6ad2]/30 px-3 py-1 rounded-full transition-all active:scale-95"
             >
               <LayoutGrid className="h-3.5 w-3.5" />
               <span>Deck Overview</span>
@@ -687,10 +715,10 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
         </div>
 
         {totalSwiped > 0 && (
-          <div className="flex items-center gap-2 bg-slate-900/90 px-3 py-1 rounded-full border border-slate-800">
-            <span className="text-[#FF0055]">✕ {historyCount.left}</span>
-            <span className="text-slate-600">•</span>
-            <span className="text-[#00E599]">✓ {historyCount.right}</span>
+          <div className="flex items-center gap-2 bg-white/[0.06] px-3 py-1 rounded-full border border-white/[0.1]">
+            <span className="text-[#dc2626]">✕ {historyCount.left}</span>
+            <span className="text-white/30">•</span>
+            <span className="text-[#27a644]">✓ {historyCount.right}</span>
           </div>
         )}
       </div>
@@ -698,7 +726,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
       {/* Main Card Stack Container */}
       <div className={`relative ${deckContainerClass} my-2`}>
         {deck.length > 0 ? (
-          <div className="relative w-full h-full overflow-hidden rounded-[2.25rem]">
+          <div className="relative w-full h-full overflow-hidden rounded-xl">
             {deck.slice(0, 3).map((assignment, index) => {
               const isTop = index === 0;
               const isExiting = isTop && swipingId === assignment.id;
@@ -748,23 +776,23 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="flex h-full w-full flex-col items-center justify-center rounded-[2.25rem] border border-slate-800 bg-[#111622] p-8 sm:p-10 text-center shadow-2xl backdrop-blur-xl card-tactile"
+            className="flex h-full w-full flex-col items-center justify-center rounded-xl border border-white/[0.1] bg-[#191a1b] p-8 sm:p-10 text-center backdrop-blur-xl card-tactile"
           >
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#00E599] to-teal-400 p-3 text-[#080A0F] shadow-xl shadow-[#00E599]/20 mb-4 animate-bounce">
+            <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-gradient-to-tr from-[#27a644] to-teal-400 p-3 text-[#08090a] shadow-[#27a644]/20 mb-4 animate-bounce">
               <CheckCircle2 className="h-10 w-10 stroke-[2.5]" />
             </div>
 
-            <h3 className="text-2xl sm:text-3xl font-black text-white font-display mb-1.5">
+            <h3 className="text-2xl sm:text-2xl font-medium text-white font-display mb-1.5">
               Deadlnr&apos;s clear — nothing due
             </h3>
-            <p className="text-xs sm:text-sm text-slate-400 max-w-xs mb-6 leading-relaxed">
+            <p className="text-xs sm:text-sm text-white/55 max-w-xs mb-6 leading-relaxed">
               All upcoming deadlines triaged! Take a break or reload your Canvas feed for updates.
             </p>
 
             <div className="flex flex-col w-full gap-3 max-w-xs">
               <button
                 onClick={handleReloadDeck}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-[#FF3B00] hover:bg-[#FF3B00]/90 px-6 py-3 font-bold text-white shadow-xl shadow-[#FF3B00]/20 active:scale-95 transition-all text-sm font-display"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 px-6 py-3 font-medium text-white shadow-[#5e6ad2]/20 active:scale-95 transition-all text-sm font-display"
               >
                 <RotateCcw className="h-4 w-4" />
                 <span>Reload Deck</span>
@@ -772,9 +800,9 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
 
               <Link
                 href="/history"
-                className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-[#111622] hover:bg-slate-800 px-6 py-2.5 font-bold text-slate-300 border border-slate-800 transition-colors text-xs"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-[#191a1b] hover:bg-white/[0.05] px-6 py-2.5 font-medium text-white/80 border border-white/[0.1] transition-colors text-xs"
               >
-                <HistoryIcon className="h-3.5 w-3.5 text-[#FF3B00]" />
+                <HistoryIcon className="h-3.5 w-3.5 text-[#828fff]" />
                 <span>View Activity History</span>
               </Link>
             </div>
@@ -784,12 +812,12 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
 
       {/* Action Controls */}
       {deck.length > 0 && (
-        <div className="flex items-center justify-center gap-6 sm:gap-10 mt-6 z-40">
+        <div className="actions-row flex items-center justify-center gap-6 sm:gap-10 mt-6 z-40">
           <button
             onClick={() => handleSwipe('left')}
             disabled={!!swipingId}
             title="Skip / Dismiss (Left Arrow)"
-            className="group flex h-16 w-16 sm:h-18 sm:w-18 items-center justify-center rounded-2xl border border-[#FF0055]/40 bg-[#111622] text-[#FF0055] shadow-2xl transition-all hover:bg-[#FF0055] hover:text-white hover:border-[#FF0055] active:scale-90 disabled:opacity-50"
+            className="group flex h-16 w-16 sm:h-18 sm:w-18 items-center justify-center rounded-lg border border-[#dc2626]/40 bg-[#191a1b] text-[#dc2626] transition-all hover:bg-[#dc2626] hover:text-white hover:border-[#dc2626] active:scale-90 disabled:opacity-50"
           >
             <X className="h-8 w-8 sm:h-9 sm:w-9 stroke-[2.5]" />
           </button>
@@ -798,7 +826,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
             onClick={handleReloadDeck}
             disabled={!!swipingId}
             title="Reload Deck"
-            className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-2xl border border-slate-800 bg-[#111622] text-slate-400 hover:text-white hover:bg-slate-800 active:scale-90 transition-all shadow-md disabled:opacity-50"
+            className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-lg border border-white/[0.1] bg-[#191a1b] text-white/55 hover:text-white hover:bg-white/[0.05] active:scale-90 transition-all disabled:opacity-50"
           >
             <RotateCcw className="h-4 w-4 sm:h-5 sm:w-5" />
           </button>
@@ -807,7 +835,7 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
             onClick={() => handleSwipe('right')}
             disabled={!!swipingId}
             title={`View Details & Complete (Right Arrow)`}
-            className="group flex h-16 w-16 sm:h-18 sm:w-18 items-center justify-center rounded-2xl border border-[#00E599]/40 bg-[#111622] text-[#00E599] shadow-2xl transition-all hover:bg-[#00E599] hover:text-[#080A0F] hover:border-[#00E599] active:scale-90 disabled:opacity-50"
+            className="group flex h-16 w-16 sm:h-18 sm:w-18 items-center justify-center rounded-lg border border-[#27a644]/40 bg-[#191a1b] text-[#27a644] transition-all hover:bg-[#27a644] hover:text-[#08090a] hover:border-[#27a644] active:scale-90 disabled:opacity-50"
           >
             <Check className="h-8 w-8 sm:h-9 sm:w-9 stroke-[3]" />
           </button>
@@ -816,13 +844,13 @@ Canvas Direct Link: ${targetAssignment.canvasUrl || 'N/A'}`;
 
       {/* Helper Banner */}
       {deck.length > 0 && (
-        <div className="mt-5 flex items-center gap-2 text-xs font-mono font-bold text-slate-400 bg-slate-900/60 px-3.5 py-1.5 rounded-full border border-slate-800">
+        <div className="mt-5 flex items-center gap-2 text-xs font-mono font-medium text-white/55 bg-white/[0.05] px-3.5 py-1.5 rounded-full border border-white/[0.1]">
           {isDesktop ? (
             <>
               <span>Press</span>
-              <kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-200 border border-slate-700 font-mono text-[10px]">←</kbd>
+              <kbd className="px-1.5 py-0.5 rounded bg-white/[0.05] text-white/90 border border-white/[0.12] font-mono text-[10px]">←</kbd>
               <span>to skip or</span>
-              <kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-200 border border-slate-700 font-mono text-[10px]">→</kbd>
+              <kbd className="px-1.5 py-0.5 rounded bg-white/[0.05] text-white/90 border border-white/[0.12] font-mono text-[10px]">→</kbd>
               <span>for Details & Completion</span>
             </>
           ) : (

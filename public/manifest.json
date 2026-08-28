@@ -1,0 +1,27 @@
+{
+  "name": "Deadlnr — Swipe your deadlines into submission",
+  "short_name": "Deadlnr",
+  "description": "Tinder-style swipe app for Canvas LMS assignments. Swipe right to copy context and launch AI.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#08090a",
+  "theme_color": "#08090a",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

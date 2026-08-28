@@ -93,15 +93,15 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#080A0F] text-slate-100 flex flex-col font-sans selection:bg-[#FF3B00]/30 selection:text-[#FF3B00]">
+    <div className="min-h-screen bg-[#08090a] text-white/95 flex flex-col font-sans selection:bg-[#5e6ad2]/30 selection:text-[#828fff]">
       <Navbar />
 
       <main className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6">
-        <div className="w-full max-w-md rounded-3xl border border-slate-800 bg-[#111622] p-8 backdrop-blur-xl card-tactile">
+        <div className="w-full max-w-md rounded-xl border border-white/[0.1] bg-[#191a1b] p-8 backdrop-blur-xl card-tactile">
           <div className="flex justify-between items-center mb-6">
             <Link
               href="/"
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06] border border-white/[0.1] text-white/55 hover:text-white hover:bg-white/[0.05] transition-colors"
             >
               <ArrowLeft className="h-4 w-4" />
             </Link>
@@ -109,10 +109,10 @@ export default function LoginPage() {
           </div>
 
           <div className="mb-6">
-            <h1 className="text-2xl font-black text-white font-display mb-1">
+            <h1 className="text-2xl font-medium text-white font-display mb-1">
               {step === 'email' ? 'Sign In / Register' : 'Verify Email Code'}
             </h1>
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-white/55">
               {step === 'email'
                 ? "We'll send you a 6-digit code"
                 : `Enter the 6-digit code sent to ${email}`}
@@ -123,8 +123,8 @@ export default function LoginPage() {
             <div
               className={`mb-6 rounded-xl p-3 text-sm flex items-start gap-2 ${
                 message.type === 'success'
-                  ? 'bg-[#00E599]/10 text-[#00E599]'
-                  : 'bg-[#FF0055]/10 text-[#FF0055]'
+                  ? 'bg-[#27a644]/10 text-[#27a644]'
+                  : 'bg-[#dc2626]/10 text-[#dc2626]'
               }`}
             >
               {message.type === 'success' ? (
@@ -140,26 +140,29 @@ export default function LoginPage() {
             /* Step 1 Form: Email Input */
             <form onSubmit={handleSendCode} className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-slate-300 mb-1.5">
+                <label htmlFor="email" className="block text-sm font-semibold text-white/80 mb-1.5">
                   Email Address
                 </label>
                 <div className="relative">
                   <input
+                    id="email"
                     type="email"
                     required
+                    autoFocus
+                    autoComplete="email"
                     placeholder="student@university.edu"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 pl-10 text-sm text-white placeholder-slate-500 focus:border-[#FF3B00] focus:outline-none focus:ring-1 focus:ring-[#FF3B00]"
+                    className="w-full rounded-xl border border-white/[0.12] bg-white/[0.03] px-4 py-3 pl-10 text-sm text-white placeholder-slate-500 focus:border-[#5e6ad2] focus:outline-none focus:ring-1 focus:ring-[#5e6ad2]"
                   />
-                  <Mail className="absolute left-3 top-3.5 h-4 w-4 text-slate-500" />
+                  <Mail className="absolute left-3 top-3.5 h-4 w-4 text-white/40" />
                 </div>
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-[#FF3B00] hover:bg-[#FF3B00]/90 py-3.5 font-bold text-white active:scale-95 transition-all text-sm font-display disabled:opacity-50"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 py-3.5 font-medium text-white active:scale-95 transition-all text-sm font-display disabled:opacity-50"
               >
                 {loading && <Loader2 className="h-4 w-4 animate-spin" />}
                 <span>Send Verification Code</span>
@@ -169,27 +172,51 @@ export default function LoginPage() {
             /* Step 2 Form: 6-Digit Code Input */
             <form onSubmit={handleVerifyCode} className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-slate-300 mb-1.5">
+                <label htmlFor="otp" className="block text-sm font-semibold text-white/80 mb-1.5">
                   Verification Code
                 </label>
                 <div className="relative">
                   <input
+                    id="otp"
+                    name="otp"
                     type="text"
                     required
+                    autoFocus
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
                     maxLength={6}
-                    placeholder="527215"
+                    placeholder="••••••"
                     value={otpCode}
-                    onChange={(e) => setOtpCode(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 pl-10 text-center text-xl font-mono font-bold tracking-widest text-white placeholder-slate-600 focus:border-[#00E599] focus:outline-none focus:ring-1 focus:ring-[#00E599]"
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    onPaste={(e) => {
+                      // Auto-fill full pasted code (mobile OTP UX)
+                      const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+                      if (pasted.length === 6) {
+                        e.preventDefault();
+                        setOtpCode(pasted);
+                      }
+                    }}
+                    className="w-full rounded-xl border border-white/[0.12] bg-white/[0.03] px-4 py-3 pl-10 text-center text-xl font-mono font-medium tracking-widest text-white placeholder-slate-600 focus:border-[#27a644] focus:outline-none focus:ring-1 focus:ring-[#27a644]"
                   />
-                  <KeyRound className="absolute left-3 top-3.5 h-4 w-4 text-slate-500" />
+                  <KeyRound className="absolute left-3 top-3.5 h-4 w-4 text-white/40" />
+                </div>
+                {/* Progress dots */}
+                <div className="flex items-center justify-center gap-1.5 mt-3">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <span
+                      key={i}
+                      className={`h-1.5 rounded-full transition-all ${
+                        otpCode.length > i ? 'w-5 bg-[#27a644]' : 'w-1.5 bg-white/[0.08]'
+                      }`}
+                    />
+                  ))}
                 </div>
               </div>
 
               <button
                 type="submit"
-                disabled={loading}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-[#00E599] hover:bg-[#00E599]/90 py-3.5 font-bold text-slate-950 active:scale-95 transition-all text-sm font-display disabled:opacity-50"
+                disabled={loading || otpCode.length < 6}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#27a644] hover:bg-[#27a644]/90 py-3.5 font-medium text-[#08090a] active:scale-95 transition-all text-sm font-display disabled:opacity-50"
               >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4 stroke-[3]" />}
                 <span>Verify Code & Sign In</span>
@@ -202,7 +229,7 @@ export default function LoginPage() {
                   setOtpCode('');
                   setMessage(null);
                 }}
-                className="w-full text-center text-xs text-slate-400 hover:text-white pt-2 flex items-center justify-center gap-1"
+                className="w-full text-center text-xs text-white/55 hover:text-white pt-2 flex items-center justify-center gap-1"
               >
                 <RefreshCw className="h-3 w-3" />
                 <span>Use a different email address</span>
@@ -210,7 +237,7 @@ export default function LoginPage() {
             </form>
           )}
 
-          <p className="mt-6 pt-6 border-t border-slate-800 text-center text-[11px] text-slate-500">
+          <p className="mt-6 pt-6 border-t border-white/[0.1] text-center text-[11px] text-white/40">
             Secure passwordless login
           </p>
         </div>

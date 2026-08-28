@@ -132,8 +132,10 @@ export async function GET(request: NextRequest) {
     }
 
     // 3. If still no feed URL found
+    // Default to demo mode when there's no feed configured — an empty deck
+    // on first visit is a dead-looking first impression.
     if (!feedUrl) {
-      if (userWantsDemo) {
+      if (userWantsDemo || !userEmail) {
         return NextResponse.json({
           assignments: MOCK_ASSIGNMENTS,
           isMock: true,

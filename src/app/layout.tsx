@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Space_Grotesk, Plus_Jakarta_Sans, Space_Mono, Geist } from 'next/font/google';
 import './globals.css';
 import { cn } from "@/lib/utils";
@@ -28,9 +28,25 @@ const spaceMono = Space_Mono({
 export const metadata: Metadata = {
   title: 'Deadlnr — Swipe your deadlines into submission',
   description: 'Tinder-style swipe app for Canvas LMS assignments. Swipe right to copy context and launch AI.',
+  applicationName: 'Deadlnr',
+  manifest: '/manifest.json',
   icons: {
-    icon: '/favicon.ico',
+    icon: '/icon.svg',
+    shortcut: '/favicon.ico',
+    apple: '/icon-192.png',
   },
+  openGraph: {
+    title: 'Deadlnr',
+    description: 'Swipe through your Canvas assignments. Send any of them straight to your favorite AI.',
+    type: 'website',
+  },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#08090a',
 };
 
 export default function RootLayout({
@@ -43,7 +59,7 @@ export default function RootLayout({
       lang="en"
       className={cn("dark", spaceGrotesk.variable, plusJakarta.variable, spaceMono.variable, "font-sans", geist.variable)}
     >
-      <body className="font-sans bg-[#080A0F] text-[#F3F4F6] min-h-screen antialiased bg-radial-gradient bg-grid-pattern selection:bg-[#FF3B00]/30 selection:text-[#FF3B00]">
+      <body className="font-sans text-[#f7f8f8] min-h-screen antialiased">
         <ThemeProvider>
           {children}
         </ThemeProvider>

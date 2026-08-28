@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deadlnr — Deck (Linear Variant)</title>
+<link rel="preconnect" href="https://rsms.me/">
+<link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+<style>
+  :root {
+    --bg: #08090a;
+    --surface: #191a1b;
+    --fg: #f7f8f8;
+    --fg-2: #d0d6e0;
+    --muted: #8a8f98;
+    --meta: #62666d;
+    --border: rgba(255,255,255,0.08);
+    --border-soft: rgba(255,255,255,0.05);
+    --accent: #5e6ad2;
+    --accent-hover: #828fff;
+    --accent-active: #4752c4;
+    --success: #27a644;
+    --danger: #dc2626;
+    --warn: #eab308;
+    --radius-sm: 6px; --radius-md: 8px; --radius-lg: 12px;
+    --elev-raised: rgba(0,0,0,0.4) 0px 2px 4px, 0 0 0 1px rgba(255,255,255,0.05);
+    --motion-fast: 150ms;
+    --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { color-scheme: dark; }
+  body {
+    background: var(--bg);
+    color: var(--fg-2);
+    font-family: "Inter Variable", "Inter", "SF Pro Display", -apple-system, system-ui, "Segoe UI", sans-serif;
+    font-feature-settings: "cv01","ss03";
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+  }
+  /* ── Nav ── */
+  nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .brand { display: flex; align-items: center; gap: 8px; color: var(--fg); font-weight: 510; font-size: 15px; letter-spacing: -0.01em; }
+  .brand .mark { width: 18px; height: 18px; border-radius: 4px; background: var(--accent); display: inline-flex; align-items:center; justify-content:center; }
+  .brand .mark svg { width: 11px; height: 11px; }
+  .nav-links { display: flex; gap: 2px; }
+  .nav-links a {
+    color: var(--muted); text-decoration: none; font-weight: 510; font-size: 13px;
+    padding: 5px 10px; border-radius: var(--radius-sm); transition: color var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard);
+  }
+  .nav-links a:hover { color: var(--fg); }
+  .nav-links a.active { color: var(--fg); background: rgba(255,255,255,0.06); }
+  /* ── Main ── */
+  main { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 40px 16px 24px; }
+  .header-row {
+    width: 100%; max-width: 420px;
+    display: flex; align-items: flex-end; justify-content: space-between;
+    margin-bottom: 28px;
+  }
+  h1 {
+    color: var(--fg); font-weight: 510; font-size: 26px;
+    letter-spacing: -0.03em; line-height: 1.05;
+  }
+  .sub { color: var(--meta); font-size: 13px; margin-top: 6px; }
+  .sub strong { color: var(--muted); font-weight: 510; }
+  .btn-primary {
+    background: var(--accent); color: #fff; border: none; cursor: pointer;
+    font: inherit; font-weight: 510; font-size: 13px;
+    padding: 7px 14px; border-radius: var(--radius-sm);
+    transition: background var(--motion-fast) var(--ease-standard);
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-primary:active { background: var(--accent-active); }
+  /* ── Card stack ── */
+  .deck { position: relative; width: 100%; max-width: 400px; height: 480px; }
+  .card {
+    position: absolute; inset: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--elev-raised);
+    padding: 24px;
+    display: flex; flex-direction: column;
+    transition: transform var(--motion-fast) var(--ease-standard);
+  }
+  .card.behind-1 { transform: scale(0.96) translateY(14px); opacity: 0.7; }
+  .card.behind-2 { transform: scale(0.92) translateY(28px); opacity: 0.45; }
+  .course-pill {
+    display: inline-flex; align-self: flex-start; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 510; letter-spacing: 0.02em;
+    color: var(--accent-hover);
+    border: 1px solid rgba(113,112,255,0.25);
+    padding: 3px 9px; border-radius: 9999px;
+    margin-bottom: 14px;
+  }
+  .course-pill .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+  .due {
+    position: absolute; top: 24px; right: 24px;
+    font-size: 12px; font-weight: 510;
+  }
+  .due.urgent { color: var(--warn); }
+  .title {
+    color: var(--fg); font-size: 21px; font-weight: 510;
+    letter-spacing: -0.02em; line-height: 1.2;
+    margin-top: 4px;
+  }
+  .desc {
+    margin-top: auto; margin-bottom: auto; padding: 18px 0;
+    color: var(--muted); font-size: 13.5px; line-height: 1.6;
+    display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .card-footer {
+    border-top: 1px solid var(--border-soft);
+    padding-top: 14px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .attach-count { color: var(--meta); font-size: 12px; display: inline-flex; align-items: center; gap: 5px; }
+  .canvas-link { color: var(--accent-hover); text-decoration: none; font-size: 12.5px; font-weight: 510; }
+  .canvas-link:hover { color: var(--fg); }
+  /* ── Actions ── */
+  .actions { display: flex; gap: 14px; align-items: center; justify-content: center; margin-top: 22px; }
+  .act {
+    width: 52px; height: 52px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent; cursor: pointer;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    transition: all var(--motion-fast) var(--ease-standard);
+  }
+  .act:hover { border-color: var(--muted); color: var(--fg); }
+  .act.skip:hover { border-color: var(--danger); color: var(--danger); }
+  .act.done:hover { border-color: var(--success); color: var(--success); }
+  .kbd-hint { margin-top: 16px; color: var(--meta); font-size: 12px; }
+  .kbd-hint kbd {
+    font-family: ui-monospace, monospace; font-size: 11px;
+    background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+    padding: 1px 5px; border-radius: 4px; color: var(--fg-2);
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<nav>
+  <span class="brand">
+    <span class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M13 2L6 13h6l-1 9 7-11h-6l1-9z" fill="#fff"/></svg></span>
+    Deadlnr
+  </span>
+  <div class="nav-links">
+    <a href="#" class="active">Deck</a>
+    <a href="#">Tasks</a>
+    <a href="#">History</a>
+    <a href="#">Settings</a>
+  </div>
+</nav>
+
+<main>
+  <div class="header-row">
+    <div>
+      <h1>What's due?</h1>
+      <p class="sub">Skip or send to <strong>Gemini</strong></p>
+    </div>
+    <button class="btn-primary">+ Add Task</button>
+  </div>
+
+  <div class="deck">
+    <div class="card behind-2" aria-hidden="true"></div>
+    <div class="card behind-1" aria-hidden="true"></div>
+    <article class="card">
+      <span class="course-pill"><span class="dot"></span>ENGLISH A: LANG &amp; LIT HL</span>
+      <span class="due urgent">Due in 14h</span>
+      <h2 class="title">Paper 2 Comparative Essay — Ibsen vs. Miller</h2>
+      <p class="desc">Write a comparative analysis of dramatic technique in A Doll's House and Death of a Salesman, focusing on how each playwright uses stage directions and symbolism to critique domestic ideals. 1,500 words, MLA format. Submit via Canvas by 8:00 AM.</p>
+      <div class="card-footer">
+        <span class="attach-count">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+          2 files
+        </span>
+        <a class="canvas-link" href="#">Open in Canvas ↗</a>
+      </div>
+    </article>
+  </div>
+
+  <div class="actions">
+    <button class="act skip" aria-label="Skip assignment">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+    <button class="act done" aria-label="Mark complete">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>
+    </button>
+  </div>
+
+  <p class="kbd-hint">Press <kbd>←</kbd> to skip · <kbd>→</kbd> for details</p>
+</main>
+</body>
+</html>

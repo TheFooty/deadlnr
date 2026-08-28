@@ -123,6 +123,13 @@ export default function SettingsPage() {
     setSaving(true);
     setMessage(null);
 
+    // Validate feed URL format before saving
+    if (feedUrl.trim() && !feedUrl.trim().startsWith('http')) {
+      setMessage({ text: 'Feed URL must start with https://', type: 'error' });
+      setSaving(false);
+      return;
+    }
+
     if (typeof window !== 'undefined') {
       localStorage.setItem('deadlnr_preferred_ai', preferredAi);
       localStorage.setItem('deadlnr_show_demo_data', String(showDemoData));
@@ -164,34 +171,34 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#080A0F] text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-[#08090a] text-white/95 flex flex-col font-sans">
       <Navbar />
 
       <main className="flex-1 max-w-3xl mx-auto w-full p-4 sm:p-6 md:p-8">
         <div className="flex items-center gap-3 mb-6">
           <Link
             href="/"
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.06] border border-white/[0.1] text-white/55 hover:text-white hover:bg-white/[0.05] transition-colors"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div>
-            <h1 className="text-2xl font-black text-white font-display">App Settings</h1>
-            <p className="text-xs text-slate-400">Configure your themes, Canvas feed & preferred AI chat assistant</p>
+            <h1 className="text-2xl font-medium text-white font-display">App Settings</h1>
+            <p className="text-xs text-white/55">Configure your themes, Canvas feed & preferred AI chat assistant</p>
           </div>
         </div>
 
         {/* Account Sync Status Banner */}
-        <div className="mb-6 rounded-2xl border border-slate-800 bg-[#111622] p-5 card-tactile">
+        <div className="mb-6 rounded-lg border border-white/[0.1] bg-[#191a1b] p-5 card-tactile">
           {isGuest ? (
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/30">
                   <LogIn className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white">Guest Mode (Local Storage)</h3>
-                  <p className="text-xs text-slate-400">
+                  <h3 className="text-sm font-medium text-white">Guest Mode (Local Storage)</h3>
+                  <p className="text-xs text-white/55">
                     Your calendar feed link, themes, and tasks will save locally on this device. Log in to sync across devices.
                   </p>
                 </div>
@@ -199,24 +206,24 @@ export default function SettingsPage() {
 
               <Link
                 href="/login"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-[#FF3B00] hover:bg-[#FF3B00]/90 px-4 py-2 text-xs font-bold text-white shadow-lg shrink-0 font-display"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 px-4 py-2 text-xs font-medium text-white shrink-0 font-display"
               >
                 <span>Log In with Email</span>
               </Link>
             </div>
           ) : (
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#00E599]/15 text-[#00E599] border border-[#00E599]/30">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#27a644]/15 text-[#27a644] border border-[#27a644]/30">
                 <UserCheck className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <h3 className="text-sm font-medium text-white flex items-center gap-2">
                   <span>Account Connected & Synced</span>
-                  <span className="text-[10px] font-mono text-[#00E599] bg-[#00E599]/10 px-2 py-0.5 rounded border border-[#00E599]/20">
+                  <span className="text-[10px] font-mono text-[#27a644] bg-[#27a644]/10 px-2 py-0.5 rounded border border-[#27a644]/20">
                     {userEmail}
                   </span>
                 </h3>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-white/55">
                   Your calendar feed, custom tasks, file attachments, and themes sync automatically to this account across all devices.
                 </p>
               </div>
@@ -228,8 +235,8 @@ export default function SettingsPage() {
           <div
             className={`mb-6 rounded-xl p-4 text-sm flex items-start gap-2 ${
               message.type === 'success'
-                ? 'bg-[#00E599]/10 text-[#00E599] border border-[#00E599]/20'
-                : 'bg-[#FF0055]/10 text-[#FF0055] border border-[#FF0055]/20'
+                ? 'bg-[#27a644]/10 text-[#27a644] border border-[#27a644]/20'
+                : 'bg-[#dc2626]/10 text-[#dc2626] border border-[#dc2626]/20'
             }`}
           >
             {message.type === 'success' ? <Check className="h-4 w-4 shrink-0 mt-0.5" /> : <HelpCircle className="h-4 w-4 shrink-0 mt-0.5" />}
@@ -239,12 +246,12 @@ export default function SettingsPage() {
 
         <form onSubmit={handleSave} className="space-y-6">
           {/* Section 1: Custom Themes Selector */}
-          <div className="rounded-2xl border border-slate-800 bg-[#111622] p-6 card-tactile">
+          <div className="rounded-lg border border-white/[0.1] bg-[#191a1b] p-6 card-tactile">
             <div className="flex items-center gap-2 mb-1">
-              <Palette className="h-5 w-5 text-[#FF3B00]" />
-              <h2 className="text-lg font-bold text-white font-display">Custom App Theme</h2>
+              <Palette className="h-5 w-5 text-[#828fff]" />
+              <h2 className="text-lg font-medium text-white font-display">Custom App Theme</h2>
             </div>
-            <p className="text-sm text-slate-400 mb-5">
+            <p className="text-sm text-white/55 mb-5">
               Personalize Deadlnr&apos;s interface color palette across all your devices.
             </p>
 
@@ -260,12 +267,12 @@ export default function SettingsPage() {
                     onClick={() => handleThemeSelect(themeKey)}
                     className={`relative flex items-center justify-between rounded-xl border p-4 transition-all text-left ${
                       isSelected
-                        ? 'border-[#FF3B00] bg-[#FF3B00]/10 shadow-lg'
-                        : 'border-slate-800 bg-slate-950/60 hover:border-slate-700'
+                        ? 'border-[#5e6ad2] bg-[#5e6ad2]/10'
+                        : 'border-white/[0.1] bg-white/[0.03]/60 hover:border-white/[0.12]'
                     }`}
                   >
                     <div>
-                      <p className="font-bold text-white text-sm mb-1.5">{themeOption.name}</p>
+                      <p className="font-medium text-white text-sm mb-1.5">{themeOption.name}</p>
                       <div className="flex items-center gap-1.5">
                         <span className="h-3.5 w-3.5 rounded-full border border-white/20" style={{ backgroundColor: themeOption.primary }} title="Primary Accent" />
                         <span className="h-3.5 w-3.5 rounded-full border border-white/20" style={{ backgroundColor: themeOption.bg }} title="Background" />
@@ -275,7 +282,7 @@ export default function SettingsPage() {
                     </div>
 
                     {isSelected && (
-                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#FF3B00] text-white">
+                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#5e6ad2] text-white">
                         <Check className="h-3 w-3 stroke-[3]" />
                       </div>
                     )}
@@ -286,17 +293,17 @@ export default function SettingsPage() {
           </div>
 
           {/* Section 2: Sample Demo Data Toggle (OFF by default) */}
-          <div className="rounded-2xl border border-slate-800 bg-[#111622] p-6 card-tactile">
+          <div className="rounded-lg border border-white/[0.1] bg-[#191a1b] p-6 card-tactile">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <Layers className="h-5 w-5 text-[#FF3B00]" />
-                  <h2 className="text-lg font-bold text-white font-display">
+                  <Layers className="h-5 w-5 text-[#828fff]" />
+                  <h2 className="text-lg font-medium text-white font-display">
                     Sample Demo Assignments
                   </h2>
                 </div>
-                <p className="text-xs sm:text-sm text-slate-400">
-                  Include sample mock tasks when no real Canvas/calendar feed deadlines exist. <strong className="text-slate-200">(Off by default)</strong>
+                <p className="text-xs sm:text-sm text-white/55">
+                  Include sample mock tasks when no real Canvas/calendar feed deadlines exist. <strong className="text-white/90">(Off by default)</strong>
                 </p>
               </div>
 
@@ -307,20 +314,20 @@ export default function SettingsPage() {
                   onChange={(e) => handleDemoToggle(e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="w-12 h-6 bg-slate-900 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FF3B00] border border-slate-700"></div>
+                <div className="w-12 h-6 bg-white/[0.06] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-white/[0.25] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#5e6ad2] border border-white/[0.12]"></div>
               </label>
             </div>
           </div>
 
           {/* Section 3: Preferred AI Picker */}
-          <div className="rounded-2xl border border-slate-800 bg-[#111622] p-6 card-tactile">
+          <div className="rounded-lg border border-white/[0.1] bg-[#191a1b] p-6 card-tactile">
             <div className="flex items-center gap-2 mb-1">
-              <Sparkles className="h-5 w-5 text-[#FF3B00]" />
-              <h2 className="text-lg font-bold text-white font-display">
+              <Sparkles className="h-5 w-5 text-[#828fff]" />
+              <h2 className="text-lg font-medium text-white font-display">
                 Default AI Assistant
               </h2>
             </div>
-            <p className="text-sm text-slate-400 mb-5">
+            <p className="text-sm text-white/55 mb-5">
               Swiping right opens your assignment focus detail view and chosen AI chat.
             </p>
 
@@ -335,8 +342,8 @@ export default function SettingsPage() {
                     onClick={() => handleAiSelect(key)}
                     className={`relative flex items-center gap-3 rounded-xl border p-4 cursor-pointer transition-all ${
                       isSelected
-                        ? 'border-[#FF3B00] bg-[#FF3B00]/5'
-                        : 'border-slate-800 bg-slate-950/60 hover:border-slate-700'
+                        ? 'border-[#5e6ad2] bg-[#5e6ad2]/5'
+                        : 'border-white/[0.1] bg-white/[0.03]/60 hover:border-white/[0.12]'
                     }`}
                   >
                     <input
@@ -348,10 +355,10 @@ export default function SettingsPage() {
                       className="sr-only"
                     />
 
-                    <p className="font-bold text-[#FFFFFF] text-sm">{provider.name}</p>
+                    <p className="font-medium text-[#FFFFFF] text-sm">{provider.name}</p>
 
                     {isSelected && (
-                      <div className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#FF3B00] text-white">
+                      <div className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#5e6ad2] text-white">
                         <Check className="h-3 w-3 stroke-[3]" />
                       </div>
                     )}
@@ -362,26 +369,26 @@ export default function SettingsPage() {
           </div>
 
           {/* Section 4: Calendar iCal Feed URL */}
-          <div className="rounded-2xl border border-slate-800 bg-[#111622] p-6 card-tactile">
+          <div className="rounded-lg border border-white/[0.1] bg-[#191a1b] p-6 card-tactile">
             <div className="flex items-center justify-between mb-1">
-              <h2 className="text-lg font-bold text-white font-display">
+              <h2 className="text-lg font-medium text-white font-display">
                 Canvas / Kognity Calendar Feed URL
               </h2>
               {hasFeedUrl && (
-                <span className="text-xs font-semibold text-[#00E599] flex items-center gap-1">
+                <span className="text-xs font-semibold text-[#27a644] flex items-center gap-1">
                   <Check className="h-3.5 w-3.5" />
                   Saved Feed Link
                 </span>
               )}
             </div>
 
-            <p className="text-sm text-slate-400 mb-4">
+            <p className="text-sm text-white/55 mb-4">
               Paste your Canvas or school iCal feed link below to automatically import your deadlines.
             </p>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-slate-300 mb-1.5">
+                <label className="block text-sm font-semibold text-white/80 mb-1.5">
                   iCal Feed URL (.ics)
                 </label>
                 <input
@@ -389,15 +396,15 @@ export default function SettingsPage() {
                   placeholder="https://your-school.instructure.com/feeds/calendars/user_XXXXXXXXXXXXXXXX.ics"
                   value={feedUrl}
                   onChange={(e) => setFeedUrl(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-[#FF3B00] focus:outline-none focus:ring-1 focus:ring-[#FF3B00] font-mono"
+                  className="w-full rounded-xl border border-white/[0.12] bg-white/[0.03] px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-[#5e6ad2] focus:outline-none focus:ring-1 focus:ring-[#5e6ad2] font-mono"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
-                  <span>Canvas API Token <span className="text-slate-500 font-normal">(Optional, for auto-hiding submitted)</span></span>
+                <label className="block text-sm font-semibold text-white/80 mb-1.5 flex items-center justify-between">
+                  <span>Canvas API Token <span className="text-white/40 font-normal">(Optional, for auto-hiding submitted)</span></span>
                   {hasApiToken && (
-                    <span className="text-xs font-semibold text-[#00E599] flex items-center gap-1">
+                    <span className="text-xs font-semibold text-[#27a644] flex items-center gap-1">
                       <Check className="h-3 w-3" />
                       Saved
                     </span>
@@ -405,19 +412,19 @@ export default function SettingsPage() {
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Key className="h-4 w-4 text-slate-500" />
+                    <Key className="h-4 w-4 text-white/40" />
                   </div>
                   <input
                     type={showApiToken ? "text" : "password"}
                     placeholder="7~XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
                     value={apiToken}
                     onChange={(e) => setApiToken(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 pl-10 pr-10 py-3 text-sm text-white placeholder-slate-600 focus:border-[#FF3B00] focus:outline-none focus:ring-1 focus:ring-[#FF3B00] font-mono"
+                    className="w-full rounded-xl border border-white/[0.12] bg-white/[0.03] pl-10 pr-10 py-3 text-sm text-white placeholder-slate-600 focus:border-[#5e6ad2] focus:outline-none focus:ring-1 focus:ring-[#5e6ad2] font-mono"
                   />
                   <button
                     type="button"
                     onClick={() => setShowApiToken(!showApiToken)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-white/55 hover:text-white"
                   >
                     {showApiToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -425,34 +432,34 @@ export default function SettingsPage() {
               </div>
 
               {/* Step-by-Step Instructions */}
-              <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-4 text-xs text-slate-300 space-y-4">
+              <div className="rounded-xl border border-white/[0.1] bg-white/[0.03]/80 p-4 text-xs text-white/80 space-y-4">
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-slate-200 font-bold">
-                    <HelpCircle className="h-4 w-4 text-[#FF3B00]" />
+                  <div className="flex items-center gap-2 text-white/90 font-medium">
+                    <HelpCircle className="h-4 w-4 text-[#828fff]" />
                     <span>How to get your Calendar Feed URL:</span>
                   </div>
-                  <ol className="list-decimal list-inside space-y-1.5 text-slate-400 pl-1">
+                  <ol className="list-decimal list-inside space-y-1.5 text-white/55 pl-1">
                     <li>Log into your school Canvas LMS account.</li>
                     <li>
-                      Click <strong className="text-slate-200">Calendar</strong> in the left sidebar.
+                      Click <strong className="text-white/90">Calendar</strong> in the left sidebar.
                     </li>
                     <li>
-                      Click <strong className="text-slate-200">&quot;Calendar Feed&quot;</strong> at the bottom right/left of the page.
+                      Click <strong className="text-white/90">&quot;Calendar Feed&quot;</strong> at the bottom right/left of the page.
                     </li>
                     <li>
-                      Copy the entire <code className="text-[#FF3B00] bg-slate-900 px-1 rounded">.ics</code> feed URL and paste it above!
+                      Copy the entire <code className="text-[#828fff] bg-white/[0.06] px-1 rounded">.ics</code> feed URL and paste it above!
                     </li>
                   </ol>
                 </div>
                 
-                <div className="space-y-2 pt-3 border-t border-slate-800/50">
-                  <div className="flex items-center gap-2 text-slate-200 font-bold">
-                    <HelpCircle className="h-4 w-4 text-[#FF3B00]" />
+                <div className="space-y-2 pt-3 border-t border-white/[0.1]/50">
+                  <div className="flex items-center gap-2 text-white/90 font-medium">
+                    <HelpCircle className="h-4 w-4 text-[#828fff]" />
                     <span>How to get your Canvas API Token:</span>
                   </div>
-                  <ol className="list-decimal list-inside space-y-1.5 text-slate-400 pl-1">
-                    <li>Log into Canvas and click <strong className="text-slate-200">Account</strong> → <strong className="text-slate-200">Settings</strong>.</li>
-                    <li>Scroll down to <strong className="text-slate-200">&quot;Approved Integrations&quot;</strong> and click <strong className="text-slate-200">&quot;+ New Access Token&quot;</strong>.</li>
+                  <ol className="list-decimal list-inside space-y-1.5 text-white/55 pl-1">
+                    <li>Log into Canvas and click <strong className="text-white/90">Account</strong> → <strong className="text-white/90">Settings</strong>.</li>
+                    <li>Scroll down to <strong className="text-white/90">&quot;Approved Integrations&quot;</strong> and click <strong className="text-white/90">&quot;+ New Access Token&quot;</strong>.</li>
                     <li>Give it a name (e.g. "Deadlnr"), leave expiry blank, and click Generate.</li>
                     <li>Copy the long token and paste it above to automatically hide submitted assignments!</li>
                   </ol>
@@ -460,7 +467,7 @@ export default function SettingsPage() {
               </div>
 
               {/* Privacy Note */}
-              <p className="flex items-center gap-2 text-[11px] text-slate-500">
+              <p className="flex items-center gap-2 text-[11px] text-white/40">
                 <Lock className="h-3.5 w-3.5 shrink-0" />
                 Your feed URL is stored securely and parsed server-side.
               </p>
@@ -472,7 +479,7 @@ export default function SettingsPage() {
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#FF3B00] hover:bg-[#FF3B00]/90 px-8 py-3.5 text-sm font-bold text-white active:scale-95 transition-all disabled:opacity-50 font-display shadow-lg shadow-[#FF3B00]/20"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 px-8 py-3.5 text-sm font-medium text-white active:scale-95 transition-all disabled:opacity-50 font-display shadow-[#5e6ad2]/20"
             >
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
               <span>Save Settings & Feed</span>

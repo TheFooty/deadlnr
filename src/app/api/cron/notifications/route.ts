@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
             subject = `😱 24 HOURS LEFT: "${target.title}" is due tomorrow!`;
             headerText = `😱 24 HOURS REMAINING`;
             messageText = `Your assignment <strong>"${target.title}"</strong> (${target.course}) is due in <strong>ONLY 24 HOURS</strong>! Don't wait until midnight!`;
-            badgeColor = '#FF3B00';
+            badgeColor = '#FF4D1C';
           } else {
             milestone = '3d';
             subject = `😰 Nervous Reminder: "${target.title}" due in ${Math.round(hoursLeft / 24)} days`;
@@ -149,7 +149,7 @@ export async function GET(request: NextRequest) {
                       <h3 style="color: #ffffff; font-size: 18px; font-weight: 800; margin: 6px 0 12px 0;">${target.title}</h3>
                       <p style="color: #cbd5e1; font-size: 14px; line-height: 1.6; margin: 0;">${messageText}</p>
                     </div>
-                    <a href="https://deadlnr-v.vercel.app" style="display: inline-block; background-color: #FF3B00; color: #ffffff; font-weight: 800; font-size: 14px; text-decoration: none; padding: 14px 28px; border-radius: 16px;">
+                    <a href="https://deadlnr-v.vercel.app" style="display: inline-block; background-color: #FF4D1C; color: #ffffff; font-weight: 800; font-size: 14px; text-decoration: none; padding: 14px 28px; border-radius: 16px;">
                       Open Deadlnr & Launch AI
                     </a>
                   </div>

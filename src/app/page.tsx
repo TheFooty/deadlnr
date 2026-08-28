@@ -7,7 +7,7 @@ import { AddDeadlineModal } from '@/components/AddDeadlineModal';
 import { useTheme } from '@/components/ThemeProvider';
 import { CanvasAssignment, PreferredAI, ThemeId, AI_PROVIDERS } from '@/lib/types';
 import { useDevice } from '@/lib/use-device';
-import { RefreshCw, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import Link from 'next/link';
 
 export default function HomePage() {
@@ -151,7 +151,7 @@ export default function HomePage() {
   const currentAi = AI_PROVIDERS[preferredAi] || AI_PROVIDERS.gemini;
 
   return (
-    <div className="min-h-screen bg-[#080A0F] text-slate-100 flex flex-col font-sans selection:bg-[#FF3B00]/30 selection:text-[#FF3B00]">
+    <div className="min-h-screen text-white/95 flex flex-col font-sans selection:bg-[#5e6ad2]/30 selection:text-[#828fff]">
       <Navbar />
 
       <AddDeadlineModal
@@ -181,17 +181,17 @@ export default function HomePage() {
         {/* Header with Add Task Button */}
         <div className="flex items-center justify-between w-full max-w-md sm:max-w-lg mb-5 sm:mb-6">
           <div className="text-left">
-            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight font-display">
-              What's due?
+            <h1 className="text-[26px] sm:text-[30px] font-medium text-white tracking-tighter">
+              What&apos;s due?
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            <p className="text-xs sm:text-sm text-white/40 mt-1">
               Skip or send to {currentAi.name}
             </p>
           </div>
 
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-2xl bg-[#FF3B00] hover:bg-[#FF3B00]/90 px-4 py-2.5 text-xs sm:text-sm font-bold text-white shadow-lg shadow-[#FF3B00]/20 active:scale-95 transition-all font-display"
+            className="inline-flex items-center gap-1.5 rounded-md bg-[#5e6ad2] hover:bg-[#828fff] px-3.5 py-2 text-[13px] font-medium text-white active:scale-95 transition-all font-display"
           >
             <Plus className="h-4 w-4 stroke-[2.5]" />
             <span>Add Task</span>
@@ -201,17 +201,32 @@ export default function HomePage() {
         {/* Center Container: Swipe Deck */}
         <div className="flex justify-center w-full">
           {loading ? (
-            <div className="flex h-[480px] sm:h-[520px] lg:h-[560px] w-full max-w-sm sm:max-w-md lg:max-w-lg flex-col items-center justify-center rounded-[2.25rem] border border-slate-800 bg-[#111622]/60 p-8 backdrop-blur-xl card-tactile">
-              <RefreshCw className="h-7 w-7 text-[#FF3B00] animate-spin mb-4" />
-              <p className="text-base font-bold text-white">Fetching assignments…</p>
+            <div className="flex h-[480px] sm:h-[520px] lg:h-[560px] w-full max-w-sm sm:max-w-md lg:max-w-lg flex-col rounded-xl border border-white/[0.1]/80 bg-[#191a1b]/60 p-7 sm:p-8 backdrop-blur-xl card-tactile gap-4">
+              <div className="flex items-center justify-between">
+                <div className="skeleton h-6 w-24" />
+                <div className="skeleton h-5 w-16" />
+              </div>
+              <div className="mt-2 space-y-3">
+                <div className="skeleton h-4 w-2/3" />
+                <div className="skeleton h-10 w-full" />
+              </div>
+              <div className="my-auto space-y-3">
+                <div className="skeleton h-3.5 w-full" />
+                <div className="skeleton h-3.5 w-11/12" />
+                <div className="skeleton h-3.5 w-3/4" />
+              </div>
+              <div className="flex items-center justify-between pt-2">
+                <div className="skeleton h-8 w-20 rounded-xl" />
+                <div className="skeleton h-8 w-8 rounded-full" />
+              </div>
             </div>
           ) : error && assignments.length === 0 ? (
-            <div className="flex h-96 w-full max-w-md flex-col items-center justify-center rounded-[2.25rem] border border-rose-500/20 bg-rose-500/5 p-8 text-center">
-              <h3 className="text-lg font-bold text-white mb-1">Couldn't load your feed</h3>
+            <div className="flex h-96 w-full max-w-md flex-col items-center justify-center rounded-xl border border-rose-500/20 bg-rose-500/5 p-8 text-center">
+              <h3 className="text-lg font-medium text-white mb-1">Couldn't load your feed</h3>
               <p className="text-xs text-rose-300/80 mb-5">{error}</p>
               <button
                 onClick={fetchData}
-                className="rounded-xl bg-slate-900 hover:bg-slate-800 px-5 py-2.5 text-xs font-semibold text-white border border-slate-700 transition-colors"
+                className="rounded-xl bg-white/[0.06] hover:bg-white/[0.05] px-5 py-2.5 text-xs font-semibold text-white border border-white/[0.12] transition-colors"
               >
                 Retry
               </button>
