@@ -104,6 +104,9 @@ export function SwipeDeck({
   // Escalating Scared Deadline Email Notifications starting 3 days before deadline
   useEffect(() => {
     async function sendEmailNotifications() {
+      if (typeof window !== 'undefined' && localStorage.getItem('deadlnr_email_reminders') === 'false') {
+        return; // Email reminders disabled by user in settings
+      }
       if (initialAssignments.length > 0) {
         try {
           await fetch('/api/notifications/check', {

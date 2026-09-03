@@ -58,6 +58,20 @@ export async function GET(request: NextRequest) {
 
       if (!targetEmail || !targetEmail.includes('@')) continue;
 
+      // Check if user has disabled email reminders in settings
+      const { data: reminderDisabled } = await supabase
+        .from('notification_logs')
+        .select('id')
+        .ilike('user_email', targetEmail)
+        .eq('assignment_id', '__SYSTEM_SETTINGS__')
+        .eq('milestone', 'email_reminders_disabled')
+        .maybeSingle();
+
+      if (reminderDisabled) {
+        console.log(`Cron: Skipping user ${targetEmail} (email reminders disabled in settings)`);
+        continue;
+      }
+
       // Decrypt feed URL
       let feedUrl = '';
       try {

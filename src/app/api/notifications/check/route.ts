@@ -1,10 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { CanvasAssignment } from '@/lib/types';
+import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { assignments, userEmail } = await request.json();
+    // Check if email reminders are disabled via cookie
+    const remindersCookie = request.cookies.get('deadlnr_email_reminders')?.value;
+    if (remindersCookie === 'false') {
+      return NextResponse.json({ message: 'Email reminders disabled by user.' });
+    }
+
+    const { assignments, userEmail, email_reminders } = await request.json();
+
+    if (email_reminders === false) {
+      return NextResponse.json({ message: 'Email reminders disabled.' });
+    }
 
     // Determine target recipient email (from body or login cookie)
     const targetEmail = userEmail || request.cookies.get('deadlnr_user_email')?.value;
@@ -12,6 +23,22 @@ export async function POST(request: NextRequest) {
     if (!targetEmail || !targetEmail.includes('@')) {
       return NextResponse.json({ message: 'No target email provided or logged in.' });
     }
+
+    // Check Supabase database if user has disabled email reminders
+    try {
+      const supabase = await createClient();
+      const { data: reminderDisabled } = await supabase
+        .from('notification_logs')
+        .select('id')
+        .ilike('user_email', targetEmail)
+        .eq('assignment_id', '__SYSTEM_SETTINGS__')
+        .eq('milestone', 'email_reminders_disabled')
+        .maybeSingle();
+
+      if (reminderDisabled) {
+        return NextResponse.json({ message: 'Email reminders disabled for this account.' });
+      }
+    } catch {}
 
     const resendApiKey = process.env.RESEND_API_KEY;
     if (!resendApiKey) {

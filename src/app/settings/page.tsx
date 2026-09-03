@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { PreferredAI, AI_PROVIDERS, ThemeId, APP_THEMES } from '@/lib/types';
 import { useTheme } from '@/components/ThemeProvider';
-import { Lock, Check, HelpCircle, ArrowLeft, Loader2, Palette, Sparkles, Layers, UserCheck, LogIn, Key, Eye, EyeOff } from 'lucide-react';
+import { Lock, Check, HelpCircle, ArrowLeft, Loader2, Palette, Sparkles, Layers, UserCheck, LogIn, Key, Eye, EyeOff, Mail } from 'lucide-react';
 import Link from 'next/link';
 
 
@@ -12,6 +12,7 @@ export default function SettingsPage() {
   const [feedUrl, setFeedUrl] = useState('');
   const [preferredAi, setPreferredAi] = useState<PreferredAI>('gemini');
   const [showDemoData, setShowDemoData] = useState<boolean>(false); // OFF by default
+  const [emailReminders, setEmailReminders] = useState<boolean>(true); // ON by default
   const [hasFeedUrl, setHasFeedUrl] = useState(false);
   const [apiToken, setApiToken] = useState('');
   const [hasApiToken, setHasApiToken] = useState(false);
@@ -33,6 +34,10 @@ export default function SettingsPage() {
       }
       const localDemo = localStorage.getItem('deadlnr_show_demo_data') === 'true';
       setShowDemoData(localDemo);
+      const localReminders = localStorage.getItem('deadlnr_email_reminders');
+      if (localReminders !== null) {
+        setEmailReminders(localReminders === 'true');
+      }
     }
 
     async function loadSettings() {
@@ -63,6 +68,12 @@ export default function SettingsPage() {
             setShowDemoData(data.show_demo_data);
             if (typeof window !== 'undefined') {
               localStorage.setItem('deadlnr_show_demo_data', String(data.show_demo_data));
+            }
+          }
+          if (typeof data.email_reminders === 'boolean') {
+            setEmailReminders(data.email_reminders);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('deadlnr_email_reminders', String(data.email_reminders));
             }
           }
           if (data.has_feed_url) setHasFeedUrl(true);
@@ -118,6 +129,19 @@ export default function SettingsPage() {
     }).catch(() => {});
   };
 
+  const handleEmailRemindersToggle = (enabled: boolean) => {
+    setEmailReminders(enabled);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('deadlnr_email_reminders', String(enabled));
+      document.cookie = `deadlnr_email_reminders=${enabled}; path=/; max-age=31536000`;
+    }
+    fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email_reminders: enabled }),
+    }).catch(() => {});
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -133,8 +157,10 @@ export default function SettingsPage() {
     if (typeof window !== 'undefined') {
       localStorage.setItem('deadlnr_preferred_ai', preferredAi);
       localStorage.setItem('deadlnr_show_demo_data', String(showDemoData));
+      localStorage.setItem('deadlnr_email_reminders', String(emailReminders));
       document.cookie = `deadlnr_preferred_ai=${preferredAi}; path=/; max-age=31536000`;
       document.cookie = `deadlnr_show_demo_data=${showDemoData}; path=/; max-age=31536000`;
+      document.cookie = `deadlnr_email_reminders=${emailReminders}; path=/; max-age=31536000`;
     }
 
     try {
@@ -147,6 +173,7 @@ export default function SettingsPage() {
           preferred_ai: preferredAi,
           theme,
           show_demo_data: showDemoData,
+          email_reminders: emailReminders,
         }),
       });
 
@@ -326,7 +353,34 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Section 3: Preferred AI Picker */}
+          {/* Section 3: Email Reminders Toggle */}
+          <div className="rounded-lg border border-white/[0.1] bg-[#191a1b] p-6 card-tactile">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Mail className="h-5 w-5 text-[#828fff]" />
+                  <h2 className="text-lg font-medium text-white font-display">
+                    Deadline Email Reminders
+                  </h2>
+                </div>
+                <p className="text-xs sm:text-sm text-white/55">
+                  Send reminder emails at 3 days, 24 hours, and 12 hours before deadlines. Turn off if you prefer device notifications.
+                </p>
+              </div>
+
+              <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                <input
+                  type="checkbox"
+                  checked={emailReminders}
+                  onChange={(e) => handleEmailRemindersToggle(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-12 h-6 bg-white/[0.06] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-white/[0.25] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#5e6ad2] border border-white/[0.12]"></div>
+              </label>
+            </div>
+          </div>
+
+          {/* Section 4: Preferred AI Picker */}
           <div className="rounded-lg border border-white/[0.1] bg-[#191a1b] p-6 card-tactile">
             <div className="flex items-center gap-2 mb-1">
               <Sparkles className="h-5 w-5 text-[#828fff]" />
@@ -375,7 +429,7 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Section 4: Calendar iCal Feed URL */}
+          {/* Section 5: Calendar iCal Feed URL */}
           <div className="rounded-lg border border-white/[0.1] bg-[#191a1b] p-6 card-tactile">
             <div className="flex items-center justify-between mb-1">
               <h2 className="text-lg font-medium text-white font-display">

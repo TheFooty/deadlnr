@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
     const cookieAi = cookieStore.get('deadlnr_preferred_ai')?.value as PreferredAI;
     const cookieTheme = cookieStore.get('deadlnr_theme')?.value as ThemeId;
     const cookieDemo = cookieStore.get('deadlnr_show_demo_data')?.value === 'true';
+    const cookieEmailReminders = cookieStore.get('deadlnr_email_reminders')?.value !== 'false';
     const cookieFeedUrlEnc = cookieStore.get('deadlnr_feed_url')?.value;
     const rawEmail = cookieStore.get('deadlnr_user_email')?.value || session?.user?.email;
     const userEmail = rawEmail ? rawEmail.trim().toLowerCase() : null;
@@ -45,6 +46,7 @@ export async function GET(request: NextRequest) {
         preferred_ai: cookieAi || 'gemini',
         theme: cookieTheme || 'default',
         show_demo_data: cookieDemo,
+        email_reminders: cookieEmailReminders,
         has_feed_url: hasFeed,
         feed_url: decryptedCookieFeed || undefined,
         isGuest: true,
@@ -95,6 +97,23 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    let emailReminders = cookieEmailReminders;
+    if (supabase && userEmail) {
+      try {
+        const { data: reminderDisabledLog } = await supabase
+          .from('notification_logs')
+          .select('id')
+          .ilike('user_email', userEmail)
+          .eq('assignment_id', '__SYSTEM_SETTINGS__')
+          .eq('milestone', 'email_reminders_disabled')
+          .maybeSingle();
+
+        if (reminderDisabledLog) {
+          emailReminders = false;
+        }
+      } catch {}
+    }
+
     let dbFeedUrl = '';
     if (dbCreds?.encrypted_feed_url) {
       try {
@@ -123,6 +142,7 @@ export async function GET(request: NextRequest) {
       preferred_ai: selectedAi,
       theme: selectedTheme,
       show_demo_data: showDemoData,
+      email_reminders: emailReminders,
       custom_assignments: dbSettings?.custom_assignments || [],
       has_feed_url: hasFeed,
       feed_url: dbFeedUrl || decryptedCookieFeed || undefined,
@@ -169,13 +189,14 @@ export async function POST(request: NextRequest) {
     const userId = session?.user?.id;
 
     const body = await request.json();
-    const { feed_url, api_token, preferred_ai, theme, show_demo_data, custom_assignments } = body;
+    const { feed_url, api_token, preferred_ai, theme, show_demo_data, email_reminders, custom_assignments } = body;
 
     const response = NextResponse.json({
       success: true,
       preferred_ai: preferred_ai || 'gemini',
       theme: theme || 'default',
       show_demo_data: !!show_demo_data,
+      email_reminders: typeof email_reminders === 'boolean' ? email_reminders : true,
       isGuest: !userEmail && !userId,
     });
 
@@ -200,6 +221,13 @@ export async function POST(request: NextRequest) {
       path: '/',
       maxAge: maxCookieAge,
     });
+
+    if (typeof email_reminders === 'boolean') {
+      response.cookies.set('deadlnr_email_reminders', String(email_reminders), {
+        path: '/',
+        maxAge: maxCookieAge,
+      });
+    }
 
     if (Array.isArray(custom_assignments)) {
       response.cookies.set('deadlnr_custom_assignments', JSON.stringify(custom_assignments), {
@@ -304,7 +332,39 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // 2. Resilient save for canvas_credentials
+        // 2. Sync email_reminders toggle state in Supabase notification_logs
+        if (cleanEmail && typeof email_reminders === 'boolean') {
+          try {
+            if (!email_reminders) {
+              const { data: existingDisable } = await supabase
+                .from('notification_logs')
+                .select('id')
+                .ilike('user_email', cleanEmail)
+                .eq('assignment_id', '__SYSTEM_SETTINGS__')
+                .eq('milestone', 'email_reminders_disabled')
+                .maybeSingle();
+
+              if (!existingDisable) {
+                await supabase.from('notification_logs').insert({
+                  user_email: cleanEmail,
+                  assignment_id: '__SYSTEM_SETTINGS__',
+                  milestone: 'email_reminders_disabled',
+                  sent_at: new Date().toISOString(),
+                });
+              }
+            } else {
+              await supabase
+                .from('notification_logs')
+                .delete()
+                .ilike('user_email', cleanEmail)
+                .eq('assignment_id', '__SYSTEM_SETTINGS__');
+            }
+          } catch (notifErr) {
+            console.error('Failed to sync email_reminders setting to notification_logs:', notifErr);
+          }
+        }
+
+        // 3. Resilient save for canvas_credentials
         if (trimmedUrl || api_token) {
           const credsPayload: Record<string, any> = {
             updated_at: new Date().toISOString(),

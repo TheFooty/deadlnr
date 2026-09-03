@@ -110,6 +110,7 @@ export interface UserSettings {
   preferred_ai: PreferredAI;
   theme?: ThemeId;
   show_demo_data?: boolean;
+  email_reminders?: boolean;
   has_feed_url: boolean;
 }
 
